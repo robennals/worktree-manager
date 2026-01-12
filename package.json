@@ -1,0 +1,47 @@
+{
+  "name": "wtm-cli",
+  "version": "1.0.0",
+  "description": "A CLI tool for managing git worktrees with ease",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "wtm": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "pnpm run build",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "git",
+    "worktree",
+    "cli",
+    "workflow",
+    "branch",
+    "development"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "pnpm@10.24.0",
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.6",
+    "typescript": "^5.9.3"
+  }
+}

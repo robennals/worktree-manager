@@ -1,0 +1,1 @@
+{"version":3,"file":"new.d.ts","sourceRoot":"","sources":["../../src/commands/new.ts"],"names":[],"mappings":"AAYA,MAAM,WAAW,UAAU;IACzB,IAAI,CAAC,EAAE,MAAM,CAAC;IACd,OAAO,CAAC,EAAE,OAAO,CAAC;IAClB,KAAK,CAAC,EAAE,OAAO,CAAC;CACjB;AAED;;GAEG;AACH,wBAAsB,SAAS,CAC7B,MAAM,EAAE,MAAM,EACd,OAAO,GAAE,UAAe,GACvB,OAAO,CAAC,IAAI,CAAC,CA+Cf"}
