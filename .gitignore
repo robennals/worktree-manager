@@ -80,7 +80,7 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
+# dist - not ignored, needed for npm publishing
 
 # Gatsby files
 .cache/
