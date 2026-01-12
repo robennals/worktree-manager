@@ -6,8 +6,9 @@ import {
   removeWorktree,
   deleteBranch,
   getRepoRoot,
+  getBranchHeadSha,
 } from "../utils/git.js";
-import { isGhCliAvailable, hasMergedPR } from "../utils/github.js";
+import { isGhCliAvailable, getMergedPR } from "../utils/github.js";
 
 export interface SweepOptions {
   dryRun?: boolean;
@@ -74,12 +75,25 @@ export async function sweep(options: SweepOptions = {}): Promise<void> {
 
     // Check if branch has a merged PR
     console.log(chalk.dim(`Checking '${wt.branch}'...`));
-    const merged = hasMergedPR(wt.branch);
+    const mergedPR = getMergedPR(wt.branch);
 
-    if (merged) {
+    if (mergedPR) {
+      // Check if branch has changes since the PR was merged
+      const localHeadSha = getBranchHeadSha(wt.branch);
+      const prHeadSha = mergedPR.headRefOid;
+
+      if (localHeadSha && prHeadSha && localHeadSha !== prHeadSha) {
+        console.log(
+          chalk.dim(
+            `Skipping '${wt.branch}' (has local changes since PR #${mergedPR.number} was merged)`
+          )
+        );
+        continue;
+      }
+
       console.log(
         chalk.yellow(
-          `Branch '${wt.branch}' has a merged PR → ${options.dryRun ? "would remove" : "removing"} worktree and branch`
+          `Branch '${wt.branch}' has a merged PR #${mergedPR.number} → ${options.dryRun ? "would remove" : "removing"} worktree and branch`
         )
       );
 
