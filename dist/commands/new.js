@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { isInsideGitRepo, localBranchExists, worktreePathExists, addWorktreeTracking, getWorktreePath, fetchRemote, getDefaultBranch, } from "../utils/git.js";
-import { copyEnvToWorktree } from "../utils/env.js";
+import { runInitScriptWithWarning } from "../utils/init-script.js";
 /**
  * Create a new branch and worktree
  */
@@ -35,8 +35,7 @@ export async function newBranch(branch, options = {}) {
         process.exit(1);
     }
     console.log(chalk.green(`Created new branch '${branch}' and worktree at ${wtPath}`));
-    if (options.copyEnv) {
-        copyEnvToWorktree(wtPath);
-    }
+    // Run init script if it exists, otherwise show a warning
+    runInitScriptWithWarning(wtPath);
 }
 //# sourceMappingURL=new.js.map

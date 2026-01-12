@@ -1,6 +1,5 @@
 export interface NewOptions {
     base?: string;
-    copyEnv?: boolean;
     fetch?: boolean;
 }
 /**

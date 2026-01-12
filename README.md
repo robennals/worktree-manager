@@ -40,13 +40,13 @@ Create a new branch and worktree from the base branch.
 ```bash
 wtm new feature/auth          # Create from main branch
 wtm new bugfix/123 -b develop # Create from develop branch
-wtm new feature/ui --copy-env # Copy .env files after creation
 ```
 
 **Options:**
 - `-b, --base <branch>` - Base branch to create from (default: main)
 - `--no-fetch` - Skip fetching the base branch before creating
-- `--copy-env` - Copy .env file to worktree subdirectories
+
+After creating the worktree, wtm will automatically run your `.wtm-init` script if it exists. See [Init Script](#init-script-wtm-init) for details.
 
 ### `wtm add <branch>`
 
@@ -55,11 +55,9 @@ Add a worktree for an existing local or remote branch.
 ```bash
 wtm add feature/login     # Add worktree for local branch
 wtm add feature/api       # Add worktree tracking remote branch
-wtm add my-branch --copy-env  # Copy .env files after creation
 ```
 
-**Options:**
-- `--copy-env` - Copy .env file to worktree subdirectories
+After creating the worktree, wtm will automatically run your `.wtm-init` script if it exists.
 
 ### `wtm list` (alias: `ls`)
 
@@ -81,12 +79,12 @@ Open a worktree in your editor, creating it if needed.
 ```bash
 wtm open feature/login       # Open in default editor (cursor/code/vim)
 wtm open main -e code        # Open in VS Code
-wtm open feature/new --copy-env  # Create and copy .env files
 ```
 
 **Options:**
 - `-e, --editor <name>` - Editor to use (default: cursor, code, vim)
-- `--copy-env` - Copy .env file when creating new worktree
+
+If a worktree needs to be created, wtm will automatically run your `.wtm-init` script.
 
 ### `wtm delete <branch>` (aliases: `del`, `rm`)
 
@@ -124,7 +122,58 @@ wtm sweep --force    # Force removal of all merged worktrees
 
 - **Branch Name Conversion**: Branch names with slashes are converted to dashes for folder names (`feature/auth` becomes `feature-auth`).
 
-- **Environment Files**: The `--copy-env` flag copies your `.env` file to common subdirectories (`server`, `client`, etc.) in the new worktree.
+## Init Script (.wtm-init)
+
+When you create a new worktree (via `wtm new`, `wtm add`, or `wtm open`), wtm looks for a script named `.wtm-init` in the parent directory (alongside your worktrees). If found, this script is automatically executed.
+
+### How it works
+
+The script runs with the **new worktree as the current working directory**. This means you can run commands like `pnpm install` directly without needing to change directories.
+
+### Creating an init script
+
+Create a `.wtm-init` file in your worktrees parent directory:
+
+```bash
+#!/bin/bash
+# Script runs in the new worktree directory
+
+# Install dependencies
+pnpm install
+
+# Copy .env from parent directory if it exists
+if [ -f "../.env" ]; then
+  cp ../.env .env
+fi
+
+# Copy .env to subdirectories if needed
+for dir in server client; do
+  if [ -d "$dir" ] && [ -f "../.env" ]; then
+    cp ../.env "$dir/.env"
+  fi
+done
+```
+
+Make it executable:
+
+```bash
+chmod +x /path/to/worktrees/.wtm-init
+```
+
+### Script location
+
+The `.wtm-init` script should be placed in the parent directory of your worktrees:
+
+```
+/projects/
+├── .wtm-init          # Init script lives here
+├── .env               # Shared .env file (optional)
+├── myapp/             # Main repository
+├── feature-auth/      # Worktree
+└── feature-api/       # Worktree
+```
+
+If no `.wtm-init` script exists, wtm will display a reminder suggesting you create one.
 
 ## Common Workflows
 

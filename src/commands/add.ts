@@ -8,10 +8,10 @@ import {
   addWorktreeTracking,
   getWorktreePath,
 } from "../utils/git.js";
-import { copyEnvToWorktree } from "../utils/env.js";
+import { runInitScriptWithWarning } from "../utils/init-script.js";
 
 export interface AddOptions {
-  copyEnv?: boolean;
+  // Currently empty, kept for future extensibility
 }
 
 /**
@@ -44,9 +44,7 @@ export async function add(branch: string, options: AddOptions = {}): Promise<voi
       process.exit(1);
     }
     console.log(chalk.green(`Created worktree at ${wtPath}`));
-    if (options.copyEnv) {
-      copyEnvToWorktree(wtPath);
-    }
+    runInitScriptWithWarning(wtPath);
     return;
   }
 
@@ -66,9 +64,7 @@ export async function add(branch: string, options: AddOptions = {}): Promise<voi
       process.exit(1);
     }
     console.log(chalk.green(`Created worktree at ${wtPath}`));
-    if (options.copyEnv) {
-      copyEnvToWorktree(wtPath);
-    }
+    runInitScriptWithWarning(wtPath);
     return;
   }
 

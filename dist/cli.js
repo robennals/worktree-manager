@@ -11,15 +11,16 @@ program
 program
     .command("add <branch>")
     .description("Add a worktree for an existing local or remote branch")
-    .option("--copy-env", "Copy .env file to worktree subdirectories")
     .addHelpText("after", `
 Examples:
   $ wtm add feature/login     # Add worktree for local branch
   $ wtm add feature/api       # Add worktree tracking remote branch
-  $ wtm add my-branch --copy-env  # Copy .env files after creation
+
+After creating the worktree, wtm will automatically run your .wtm-init script
+if it exists. See 'wtm new --help' for details on the init script.
 `)
-    .action((branch, options) => {
-    add(branch, { copyEnv: options.copyEnv });
+    .action((branch) => {
+    add(branch);
 });
 // New command - create new branch and worktree
 program
@@ -27,18 +28,45 @@ program
     .description("Create a new branch and worktree from the base branch")
     .option("-b, --base <branch>", "Base branch to create from (default: main)")
     .option("--no-fetch", "Skip fetching the base branch before creating")
-    .option("--copy-env", "Copy .env file to worktree subdirectories")
     .addHelpText("after", `
 Examples:
   $ wtm new feature/auth          # Create from main branch
   $ wtm new bugfix/123 -b develop # Create from develop branch
-  $ wtm new feature/ui --copy-env # Copy .env files after creation
+
+${chalk.bold("Init Script (.wtm-init):")}
+
+After creating a worktree, wtm automatically looks for a script named .wtm-init
+in the parent directory (alongside your worktrees). If found, the script is
+executed with the new worktree as the current working directory.
+
+This allows you to automate setup tasks like installing dependencies, copying
+config files, or any other initialization needed for new worktrees.
+
+${chalk.bold("Creating an init script:")}
+
+  # Create the script in your worktrees parent directory
+  cat > /path/to/worktrees/.wtm-init << 'EOF'
+  #!/bin/bash
+  # Script runs in the new worktree directory
+
+  # Install dependencies
+  pnpm install
+
+  # Copy .env from parent directory if it exists
+  if [ -f "../.env" ]; then
+    cp ../.env .env
+  fi
+  EOF
+
+  # Make it executable
+  chmod +x /path/to/worktrees/.wtm-init
+
+${chalk.dim("If no .wtm-init script exists, a reminder will be shown suggesting you create one.")}
 `)
     .action((branch, options) => {
     newBranch(branch, {
         base: options.base,
         fetch: options.fetch,
-        copyEnv: options.copyEnv,
     });
 });
 // List command - list all worktrees
@@ -61,15 +89,16 @@ program
     .command("open <branch>")
     .description("Open a worktree in your editor, creating it if needed")
     .option("-e, --editor <name>", "Editor to use (default: cursor, code, vim)")
-    .option("--copy-env", "Copy .env file when creating new worktree")
     .addHelpText("after", `
 Examples:
   $ wtm open feature/login       # Open in default editor (cursor/code/vim)
   $ wtm open main -e code        # Open in VS Code
-  $ wtm open feature/new --copy-env  # Create and copy .env files
+
+If a worktree needs to be created, the .wtm-init script will be run automatically.
+See 'wtm new --help' for details on the init script.
 `)
     .action((branch, options) => {
-    open(branch, { editor: options.editor, copyEnv: options.copyEnv });
+    open(branch, { editor: options.editor });
 });
 // Delete command - remove worktree and optionally branch
 program
@@ -129,7 +158,8 @@ ${chalk.bold("Tips:")}
 
   • Worktrees are created in sibling directories (../branch-name)
   • Branch names with slashes are converted to dashes in folder names
-  • Use --copy-env to automatically copy .env files to common subdirectories
+  • Create a .wtm-init script to automate setup tasks for new worktrees
+    (see 'wtm new --help' for details)
 
 ${chalk.dim("For more info on a command, run: wtm <command> --help")}
 `);

@@ -8,11 +8,10 @@ import {
   fetchRemote,
   getDefaultBranch,
 } from "../utils/git.js";
-import { copyEnvToWorktree } from "../utils/env.js";
+import { runInitScriptWithWarning } from "../utils/init-script.js";
 
 export interface NewOptions {
   base?: string;
-  copyEnv?: boolean;
   fetch?: boolean;
 }
 
@@ -66,7 +65,6 @@ export async function newBranch(
 
   console.log(chalk.green(`Created new branch '${branch}' and worktree at ${wtPath}`));
 
-  if (options.copyEnv) {
-    copyEnvToWorktree(wtPath);
-  }
+  // Run init script if it exists, otherwise show a warning
+  runInitScriptWithWarning(wtPath);
 }

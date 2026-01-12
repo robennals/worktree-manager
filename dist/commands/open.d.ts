@@ -1,6 +1,5 @@
 export interface OpenOptions {
     editor?: string;
-    copyEnv?: boolean;
 }
 /**
  * Open a worktree in an editor, creating it if necessary

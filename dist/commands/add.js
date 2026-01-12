@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { isInsideGitRepo, localBranchExists, remoteBranchExists, worktreePathExists, addWorktree, addWorktreeTracking, getWorktreePath, } from "../utils/git.js";
-import { copyEnvToWorktree } from "../utils/env.js";
+import { runInitScriptWithWarning } from "../utils/init-script.js";
 /**
  * Add a worktree for an existing branch (local or remote)
  */
@@ -24,9 +24,7 @@ export async function add(branch, options = {}) {
             process.exit(1);
         }
         console.log(chalk.green(`Created worktree at ${wtPath}`));
-        if (options.copyEnv) {
-            copyEnvToWorktree(wtPath);
-        }
+        runInitScriptWithWarning(wtPath);
         return;
     }
     // Check for remote branch
@@ -39,9 +37,7 @@ export async function add(branch, options = {}) {
             process.exit(1);
         }
         console.log(chalk.green(`Created worktree at ${wtPath}`));
-        if (options.copyEnv) {
-            copyEnvToWorktree(wtPath);
-        }
+        runInitScriptWithWarning(wtPath);
         return;
     }
     console.error(chalk.red(`Error: Neither local branch '${branch}' nor remote 'origin/${branch}' exists.`));

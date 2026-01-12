@@ -4,17 +4,15 @@ import {
   isInsideGitRepo,
   localBranchExists,
   remoteBranchExists,
-  worktreePathExists,
   addWorktree,
   addWorktreeTracking,
   getWorktreePath,
 } from "../utils/git.js";
 import { openInEditor } from "../utils/editor.js";
-import { copyEnvToWorktree } from "../utils/env.js";
+import { runInitScriptWithWarning } from "../utils/init-script.js";
 
 export interface OpenOptions {
   editor?: string;
-  copyEnv?: boolean;
 }
 
 /**
@@ -63,9 +61,6 @@ export async function open(
       console.error(chalk.red(`Error: ${result.error}`));
       process.exit(1);
     }
-    if (options.copyEnv) {
-      copyEnvToWorktree(wtPath);
-    }
   } else {
     console.error(
       chalk.red(`Error: No local or remote branch '${branch}' exists.`)
@@ -77,6 +72,7 @@ export async function open(
   }
 
   console.log(chalk.green(`Created worktree at ${wtPath}`));
+  runInitScriptWithWarning(wtPath);
   const opened = await openInEditor(wtPath, options.editor);
   if (!opened) {
     console.error(

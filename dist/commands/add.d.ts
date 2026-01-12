@@ -1,5 +1,4 @@
 export interface AddOptions {
-    copyEnv?: boolean;
 }
 /**
  * Add a worktree for an existing branch (local or remote)
