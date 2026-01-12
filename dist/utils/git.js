@@ -181,6 +181,13 @@ export function hasUncommittedChanges(wtPath) {
     return result.success && result.output.length > 0;
 }
 /**
+ * Get the HEAD commit SHA of a branch
+ */
+export function getBranchHeadSha(branch, cwd) {
+    const result = execGit(["rev-parse", `refs/heads/${branch}`], cwd);
+    return result.success ? result.output : null;
+}
+/**
  * Get the remote URL
  */
 export function getRemoteUrl(remote = "origin", cwd) {

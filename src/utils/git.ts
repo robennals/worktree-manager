@@ -245,6 +245,14 @@ export function hasUncommittedChanges(wtPath: string): boolean {
 }
 
 /**
+ * Get the HEAD commit SHA of a branch
+ */
+export function getBranchHeadSha(branch: string, cwd?: string): string | null {
+  const result = execGit(["rev-parse", `refs/heads/${branch}`], cwd);
+  return result.success ? result.output : null;
+}
+
+/**
  * Get the remote URL
  */
 export function getRemoteUrl(remote = "origin", cwd?: string): string | null {

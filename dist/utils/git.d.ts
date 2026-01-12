@@ -82,6 +82,10 @@ export declare function fetchRemote(remote?: string, branch?: string, cwd?: stri
  */
 export declare function hasUncommittedChanges(wtPath: string): boolean;
 /**
+ * Get the HEAD commit SHA of a branch
+ */
+export declare function getBranchHeadSha(branch: string, cwd?: string): string | null;
+/**
  * Get the remote URL
  */
 export declare function getRemoteUrl(remote?: string, cwd?: string): string | null;

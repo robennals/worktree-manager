@@ -25,6 +25,19 @@ export function hasMergedPR(branch) {
     }
 }
 /**
+ * Get the merged PR for a branch, including the head commit SHA at time of merge
+ */
+export function getMergedPR(branch) {
+    try {
+        const output = execSync(`gh pr list --head "${branch}" --state merged --json number,state,title,headRefOid --limit 1`, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+        const prs = JSON.parse(output);
+        return prs.length > 0 ? prs[0] : null;
+    }
+    catch {
+        return null;
+    }
+}
+/**
  * Get PR info for a branch
  */
 export function getPRInfo(branch) {
