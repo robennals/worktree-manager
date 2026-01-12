@@ -4,6 +4,7 @@ export interface PullRequest {
   number: number;
   state: string;
   title?: string;
+  headRefOid?: string;
 }
 
 /**
@@ -31,6 +32,22 @@ export function hasMergedPR(branch: string): boolean {
     return prs.length > 0;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Get the merged PR for a branch, including the head commit SHA at time of merge
+ */
+export function getMergedPR(branch: string): PullRequest | null {
+  try {
+    const output = execSync(
+      `gh pr list --head "${branch}" --state merged --json number,state,title,headRefOid --limit 1`,
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }
+    );
+    const prs = JSON.parse(output) as PullRequest[];
+    return prs.length > 0 ? prs[0] : null;
+  } catch {
+    return null;
   }
 }
 

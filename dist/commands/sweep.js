@@ -1,6 +1,6 @@
 import chalk from "chalk";
-import { isInsideGitRepo, isGitHubRepo, listWorktrees, removeWorktree, deleteBranch, } from "../utils/git.js";
-import { isGhCliAvailable, hasMergedPR } from "../utils/github.js";
+import { isInsideGitRepo, isGitHubRepo, listWorktrees, removeWorktree, deleteBranch, getBranchHeadSha, } from "../utils/git.js";
+import { isGhCliAvailable, getMergedPR } from "../utils/github.js";
 /**
  * Remove worktrees whose branches have merged PRs on GitHub
  */
@@ -43,9 +43,16 @@ export async function sweep(options = {}) {
         }
         // Check if branch has a merged PR
         console.log(chalk.dim(`Checking '${wt.branch}'...`));
-        const merged = hasMergedPR(wt.branch);
-        if (merged) {
-            console.log(chalk.yellow(`Branch '${wt.branch}' has a merged PR → ${options.dryRun ? "would remove" : "removing"} worktree and branch`));
+        const mergedPR = getMergedPR(wt.branch);
+        if (mergedPR) {
+            // Check if branch has changes since the PR was merged
+            const localHeadSha = getBranchHeadSha(wt.branch);
+            const prHeadSha = mergedPR.headRefOid;
+            if (localHeadSha && prHeadSha && localHeadSha !== prHeadSha) {
+                console.log(chalk.dim(`Skipping '${wt.branch}' (has local changes since PR #${mergedPR.number} was merged)`));
+                continue;
+            }
+            console.log(chalk.yellow(`Branch '${wt.branch}' has a merged PR #${mergedPR.number} → ${options.dryRun ? "would remove" : "removing"} worktree and branch`));
             if (options.dryRun) {
                 console.log(chalk.dim(`  Would remove: ${wt.path}`));
                 console.log(chalk.dim(`  Would delete branch: ${wt.branch}`));
