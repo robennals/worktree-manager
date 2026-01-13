@@ -73,6 +73,21 @@ export function getRepoRoot(cwd?: string): string | null {
 }
 
 /**
+ * Get the current branch name
+ */
+export function getCurrentBranch(cwd?: string): string | null {
+  const result = execGit(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+  return result.success ? result.output : null;
+}
+
+/**
+ * Pull the current branch (fast-forward only)
+ */
+export function pullFastForward(cwd?: string): ExecResult {
+  return execGit(["pull", "--ff-only"], cwd);
+}
+
+/**
  * Check if a local branch exists
  */
 export function localBranchExists(branch: string, cwd?: string): boolean {
@@ -187,7 +202,7 @@ export async function addWorktree(
 }
 
 /**
- * Add a worktree with a new branch tracking a remote
+ * Add a worktree with a new branch from a start point.
  */
 export async function addWorktreeTracking(
   branch: string,
@@ -234,6 +249,17 @@ export function fetchRemote(
   const args = ["fetch", remote];
   if (branch) args.push(branch);
   return execGit(args, cwd);
+}
+
+/**
+ * Push a branch and set up upstream tracking
+ */
+export function pushWithUpstream(
+  branch: string,
+  remote = "origin",
+  cwd?: string
+): ExecResult {
+  return execGit(["push", "-u", remote, branch], cwd);
 }
 
 /**

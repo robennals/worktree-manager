@@ -5,8 +5,9 @@ import {
   worktreePathExists,
   addWorktreeTracking,
   getWorktreePath,
-  fetchRemote,
   getDefaultBranch,
+  getCurrentBranch,
+  pullFastForward,
 } from "../utils/git.js";
 import { runInitScriptWithWarning } from "../utils/init-script.js";
 import { openInEditor } from "../utils/editor.js";
@@ -48,19 +49,32 @@ export async function newBranch(
   const baseBranch = options.base || getDefaultBranch();
   const wtPath = getWorktreePath(branch);
 
-  // Always fetch the base branch to ensure we branch from the latest
-  console.log(chalk.blue(`Fetching origin/${baseBranch}...`));
-  const fetchResult = fetchRemote("origin", baseBranch);
-  if (!fetchResult.success) {
-    console.warn(chalk.yellow(`Warning: Could not fetch origin/${baseBranch}`));
+  // Require running from the base branch so we can pull latest and branch from it
+  const currentBranch = getCurrentBranch();
+  if (currentBranch !== baseBranch) {
+    console.error(
+      chalk.red(`Error: Must run 'wtm new' from the '${baseBranch}' branch.`)
+    );
+    console.log(
+      chalk.dim(`Current branch is '${currentBranch}'. Switch to '${baseBranch}' first.`)
+    );
+    process.exit(1);
   }
 
-  // Always branch from origin/<baseBranch> to ensure we have the latest
-  const startPoint = `origin/${baseBranch}`;
+  // Pull latest changes to the base branch
+  console.log(chalk.blue(`Pulling latest changes to ${baseBranch}...`));
+  const pullResult = pullFastForward();
+  if (!pullResult.success) {
+    console.error(chalk.red(`Error: Could not pull latest changes: ${pullResult.error}`));
+    console.log(chalk.dim(`Make sure your working tree is clean and the branch can fast-forward.`));
+    process.exit(1);
+  }
+
+  // Create new branch from current (base) branch
   console.log(
-    chalk.blue(`Creating new branch '${branch}' from '${startPoint}'`)
+    chalk.blue(`Creating new branch '${branch}' from '${baseBranch}'`)
   );
-  const result = await addWorktreeTracking(branch, startPoint);
+  const result = await addWorktreeTracking(branch, baseBranch);
   if (!result.success) {
     console.error(chalk.red(`Error: ${result.error}`));
     process.exit(1);
