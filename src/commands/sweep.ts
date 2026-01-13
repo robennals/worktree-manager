@@ -6,6 +6,7 @@ import {
   deleteBranch,
   getBranchHeadSha,
   getContext,
+  isAncestor,
 } from "../utils/git.js";
 import { isGhCliAvailable, getMergedPR } from "../utils/github.js";
 
@@ -108,11 +109,17 @@ export async function sweep(options: SweepOptions = {}): Promise<void> {
     const mergedPR = getMergedPR(wt.branch);
 
     if (mergedPR) {
-      // Check if branch has changes since the PR was merged
+      // Check if branch has changes since the PR was merged.
+      // The branch is considered merged if local SHA matches or is an ancestor
+      // of the PR's headRefOid.
       const localHeadSha = getBranchHeadSha(wt.branch, cwd);
       const prHeadSha = mergedPR.headRefOid;
 
-      if (localHeadSha && prHeadSha && localHeadSha !== prHeadSha) {
+      const isMerged =
+        localHeadSha === prHeadSha ||
+        (localHeadSha && prHeadSha && isAncestor(localHeadSha, prHeadSha, cwd));
+
+      if (localHeadSha && prHeadSha && !isMerged) {
         console.log(
           chalk.dim(
             `Skipping '${wt.branch}' (has local changes since PR #${mergedPR.number} was merged)`

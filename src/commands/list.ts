@@ -2,9 +2,12 @@ import chalk from "chalk";
 import {
   listWorktrees,
   WorktreeInfo,
-  getBranchHeadSha,
   isGitHubRepo,
   getContext,
+  getBranchHeadSha,
+  isAncestor,
+  commitExists,
+  getDefaultBranch,
 } from "../utils/git.js";
 import {
   isGhCliAvailable,
@@ -25,7 +28,8 @@ export type WorktreeStatus =
   | "Open"
   | "Merged"
   | "Closed"
-  | "Changes since Merge";
+  | "Changes since Merge"
+  | "Main";
 
 export interface WorktreeListItem {
   name: string;
@@ -54,23 +58,36 @@ function getWorktreeStatuses(
 
   if (branches.length === 0) return result;
 
+  // Get the default branch name (main/master)
+  const defaultBranch = getDefaultBranch();
+
+  // Mark the default branch as "Main" - it's not a feature branch
+  if (branches.includes(defaultBranch)) {
+    result.set(defaultBranch, { status: "Main", prNumber: null });
+  }
+
+  // Filter out the default branch from PR lookups
+  const featureBranches = branches.filter((b) => b !== defaultBranch);
+
+  if (featureBranches.length === 0) return result;
+
   // Check if GitHub is available
   const ghAvailable = isGhCliAvailable();
   const isGitHub = isGitHubRepo(cwd);
 
   if (!isGitHub || !ghAvailable) {
     // No GitHub access - all are "No PR"
-    for (const branch of branches) {
+    for (const branch of featureBranches) {
       result.set(branch, { status: "No PR", prNumber: null });
     }
     return result;
   }
 
   // Get cached PR numbers
-  const cachedNumbers = getCachedPRNumbers(branches);
+  const cachedNumbers = getCachedPRNumbers(featureBranches);
 
   // Find branches without cached PR numbers
-  const uncachedBranches = branches.filter((b) => !cachedNumbers.has(b));
+  const uncachedBranches = featureBranches.filter((b) => !cachedNumbers.has(b));
 
   // Look up PRs for uncached branches (slow individual lookups, but results get cached)
   const newPRNumbers = new Map<string, number>();
@@ -94,7 +111,7 @@ function getWorktreeStatuses(
   const prStatuses = batchGetPRStatuses(allPRNumbers);
 
   // Map PR numbers back to branches and determine status
-  for (const branch of branches) {
+  for (const branch of featureBranches) {
     const prNumber = cachedNumbers.get(branch);
 
     if (!prNumber) {
@@ -114,10 +131,28 @@ function getWorktreeStatuses(
     } else if (prStatus.state === "CLOSED") {
       result.set(branch, { status: "Closed", prNumber });
     } else if (prStatus.state === "MERGED") {
-      // Check if local branch has changes since merge
+      // Check if local branch has changes since the PR was merged.
+      // The branch is considered merged if:
+      // 1. Local SHA matches the PR's headRefOid exactly, OR
+      // 2. Local branch is an ancestor of the PR's headRefOid (e.g., someone
+      //    added commits to the PR after you pushed), OR
+      // 3. The PR's headRefOid doesn't exist locally (can't verify, assume merged)
       const localSha = getBranchHeadSha(branch);
-      if (localSha && localSha !== prStatus.headRefOid) {
-        result.set(branch, { status: "Changes since Merge", prNumber });
+      if (localSha === prStatus.headRefOid) {
+        result.set(branch, { status: "Merged", prNumber });
+      } else if (localSha) {
+        // Check if PR head commit exists locally
+        const prHeadExists = commitExists(prStatus.headRefOid);
+        if (!prHeadExists) {
+          // Can't verify - assume merged since PR is marked as merged
+          result.set(branch, { status: "Merged", prNumber });
+        } else if (isAncestor(localSha, prStatus.headRefOid)) {
+          // Local is an ancestor of PR head - someone added commits after we pushed
+          result.set(branch, { status: "Merged", prNumber });
+        } else {
+          // Local has diverged from what was merged
+          result.set(branch, { status: "Changes since Merge", prNumber });
+        }
       } else {
         result.set(branch, { status: "Merged", prNumber });
       }
@@ -144,6 +179,8 @@ function formatStatus(status: WorktreeStatus | null): string {
       return chalk.red("Closed");
     case "Changes since Merge":
       return chalk.yellow("Changes since Merge");
+    case "Main":
+      return chalk.cyan("Main");
   }
 }
 

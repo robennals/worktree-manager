@@ -335,6 +335,7 @@ describe("list command", () => {
     it("should show Changes since Merge when local has new commits", () => {
       vi.mocked(git.isGitHubRepo).mockReturnValue(true);
       vi.mocked(github.isGhCliAvailable).mockReturnValue(true);
+      vi.mocked(git.getDefaultBranch).mockReturnValue("main");
       vi.mocked(cache.getCachedPRNumbers).mockReturnValue(
         new Map([["feature", 123]])
       );
@@ -351,8 +352,10 @@ describe("list command", () => {
           ],
         ])
       );
-      // Local SHA is different from PR head SHA
+      // Local SHA is different from PR head SHA and not an ancestor
       vi.mocked(git.getBranchHeadSha).mockReturnValue("def456");
+      vi.mocked(git.commitExists).mockReturnValue(true); // PR head exists locally
+      vi.mocked(git.isAncestor).mockReturnValue(false);
       vi.mocked(git.listWorktrees).mockReturnValue([
         {
           path: "/projects/feature",
@@ -367,6 +370,45 @@ describe("list command", () => {
 
       const logCalls = vi.mocked(console.log).mock.calls.flat().join(" ");
       expect(logCalls).toContain("Changes since Merge");
+    });
+
+    it("should show Merged when local is an ancestor of PR head", () => {
+      vi.mocked(git.isGitHubRepo).mockReturnValue(true);
+      vi.mocked(github.isGhCliAvailable).mockReturnValue(true);
+      vi.mocked(cache.getCachedPRNumbers).mockReturnValue(
+        new Map([["feature", 123]])
+      );
+      vi.mocked(github.batchGetPRStatuses).mockReturnValue(
+        new Map([
+          [
+            123,
+            {
+              number: 123,
+              state: "MERGED",
+              headRefOid: "abc123",
+              headRefName: "feature",
+            },
+          ],
+        ])
+      );
+      // Local SHA differs but is an ancestor (e.g., someone added commits to PR)
+      vi.mocked(git.getBranchHeadSha).mockReturnValue("old456");
+      vi.mocked(git.isAncestor).mockReturnValue(true);
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        {
+          path: "/projects/feature",
+          head: "old456",
+          branch: "feature",
+          bare: false,
+          detached: false,
+        },
+      ]);
+
+      list();
+
+      const logCalls = vi.mocked(console.log).mock.calls.flat().join(" ");
+      expect(logCalls).toContain("Merged");
+      expect(logCalls).not.toContain("Changes since Merge");
     });
 
     it("should show Closed status for branches with closed PRs", () => {

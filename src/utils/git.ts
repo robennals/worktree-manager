@@ -309,6 +309,31 @@ export function isGitHubRepo(cwd?: string): boolean {
   return url !== null && url.includes("github.com");
 }
 
+
+/**
+ * Check if a commit is an ancestor of another commit.
+ * Returns true if ancestorSha is an ancestor of descendantSha.
+ */
+export function isAncestor(
+  ancestorSha: string,
+  descendantSha: string,
+  cwd?: string
+): boolean {
+  const result = execGit(
+    ["merge-base", "--is-ancestor", ancestorSha, descendantSha],
+    cwd
+  );
+  return result.success;
+}
+
+/**
+ * Check if a commit exists in the local repository.
+ */
+export function commitExists(sha: string, cwd?: string): boolean {
+  const result = execGit(["cat-file", "-t", sha], cwd);
+  return result.success && result.output === "commit";
+}
+
 /**
  * Get the default branch name (main or master)
  */
