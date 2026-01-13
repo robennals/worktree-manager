@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { add, newBranch, list, open, del, sweep, clone } from "./commands/index.js";
+import { add, newBranch, list, open, del, sweep, clone, setup } from "./commands/index.js";
 
 const program = new Command();
 
@@ -195,6 +195,29 @@ You can then use 'wtm new' to create feature branches as sibling directories.
   )
   .action((repoUrl, options) => {
     clone(repoUrl, { name: options.name });
+  });
+
+// Setup command - interactively create ~/.wtmrc.json
+program
+  .command("setup")
+  .description("Interactively configure wtm settings (~/.wtmrc.json)")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ wtm setup     # Run interactive setup wizard
+
+This command will:
+  • Detect available editors on your system
+  • Ask you to select your preferred editor
+  • Configure auto-open behavior for 'wtm new'
+  • Create ~/.wtmrc.json with your settings
+
+${chalk.dim("The config file can also be edited manually.")}
+`
+  )
+  .action(() => {
+    setup();
   });
 
 // Add helpful examples to the main help

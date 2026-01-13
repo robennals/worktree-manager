@@ -3,6 +3,19 @@ import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { execSync } from "node:child_process";
 const CONFIG_FILENAME = ".wtmrc.json";
+const HOME_CONFIG_PATH = join(homedir(), CONFIG_FILENAME);
+/**
+ * Check if the home config file (~/.wtmrc.json) exists
+ */
+export function hasHomeConfig() {
+    return existsSync(HOME_CONFIG_PATH);
+}
+/**
+ * Get path to the home config file
+ */
+export function getHomeConfigPath() {
+    return HOME_CONFIG_PATH;
+}
 /**
  * Get the root directory of the current git repository
  */

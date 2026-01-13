@@ -2,6 +2,7 @@ import chalk from "chalk";
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import { hasHomeConfig } from "../utils/config.js";
 
 export interface CloneOptions {
   name?: string;
@@ -94,4 +95,10 @@ export async function clone(
   console.log(`  Create ${chalk.cyan(`${repoName}/.wtm-init`)} to run setup on new worktrees:`);
   console.log(`    ${chalk.dim("#!/bin/bash")}`);
   console.log(`    ${chalk.dim("pnpm install  # or npm install, yarn, etc.")}`);
+
+  // Suggest running setup if no home config exists
+  if (!hasHomeConfig()) {
+    console.log("");
+    console.log(chalk.yellow("Tip: Run 'wtm setup' to configure your preferred editor and other settings."));
+  }
 }

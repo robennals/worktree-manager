@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import chalk from "chalk";
-import { getConfiguredEditor } from "./config.js";
+import { getConfiguredEditor, hasHomeConfig } from "./config.js";
 
 /**
  * Fallback editors to try if no editor is configured
@@ -43,11 +43,19 @@ export function openInEditor(
               `Warning: No editor configured in .wtmrc.json. Using EDITOR environment variable: ${envEditor}`
             )
           );
-          console.warn(
-            chalk.dim(
-              `  To configure, create .wtmrc.json with: { "editor": "your-editor" }`
-            )
-          );
+          if (!hasHomeConfig()) {
+            console.warn(
+              chalk.dim(
+                `  Run 'wtm setup' to configure your preferred editor.`
+              )
+            );
+          } else {
+            console.warn(
+              chalk.dim(
+                `  To configure, create .wtmrc.json with: { "editor": "your-editor" }`
+              )
+            );
+          }
         } else {
           editors = FALLBACK_EDITORS;
           showWarning = true;
@@ -56,11 +64,19 @@ export function openInEditor(
               `Warning: No editor configured. Trying fallback editors: ${FALLBACK_EDITORS.join(", ")}`
             )
           );
-          console.warn(
-            chalk.dim(
-              `  To configure, create .wtmrc.json with: { "editor": "your-editor" }`
-            )
-          );
+          if (!hasHomeConfig()) {
+            console.warn(
+              chalk.dim(
+                `  Run 'wtm setup' to configure your preferred editor.`
+              )
+            );
+          } else {
+            console.warn(
+              chalk.dim(
+                `  To configure, create .wtmrc.json with: { "editor": "your-editor" }`
+              )
+            );
+          }
         }
       }
     }
