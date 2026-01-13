@@ -32,18 +32,17 @@ wtm sweep
 
 ### `wtm new <branch>`
 
-Create a new branch and worktree from the base branch. By default, opens the new worktree in your configured editor.
+Create a new branch and worktree from the latest `origin/main` (or another base branch). Always fetches and branches from the remote to ensure you have the latest code. By default, opens the new worktree in your configured editor.
 
 ```bash
-wtm new feature/auth          # Create from main and open in editor
-wtm new bugfix/123 -b develop # Create from develop branch
+wtm new feature/auth          # Create from latest origin/main
+wtm new bugfix/123 -b develop # Create from latest origin/develop
 wtm new feature/x --no-open   # Create without opening editor
 wtm new feature/y -e code     # Create and open in VS Code
 ```
 
 **Options:**
 - `-b, --base <branch>` - Base branch to create from (default: main)
-- `--no-fetch` - Skip fetching the base branch before creating
 - `--no-open` - Don't open the worktree in an editor after creation
 - `-e, --editor <name>` - Editor to use when opening
 

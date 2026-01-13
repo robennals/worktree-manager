@@ -33,19 +33,20 @@ if it exists. See 'wtm new --help' for details on the init script.
 // New command - create new branch and worktree
 program
   .command("new <branch>")
-  .description("Create a new branch and worktree from the base branch")
+  .description("Create a new branch and worktree from the latest origin/main")
   .option("-b, --base <branch>", "Base branch to create from (default: main)")
-  .option("--no-fetch", "Skip fetching the base branch before creating")
   .option("--no-open", "Don't open the worktree in an editor after creation")
   .option("-e, --editor <name>", "Editor to use when opening")
   .addHelpText(
     "after",
     `
 Examples:
-  $ wtm new feature/auth          # Create from main and open in editor
-  $ wtm new bugfix/123 -b develop # Create from develop branch
+  $ wtm new feature/auth          # Create from latest origin/main
+  $ wtm new bugfix/123 -b develop # Create from latest origin/develop
   $ wtm new feature/x --no-open   # Create without opening editor
   $ wtm new feature/y -e code     # Create and open in VS Code
+
+${chalk.dim("Note: Always fetches and branches from origin/<base> to ensure you have the latest code.")}
 
 ${chalk.bold("Init Script (.wtm-init):")}
 
@@ -81,7 +82,6 @@ ${chalk.dim("If no .wtm-init script exists, a reminder will be shown suggesting 
   .action((branch, options) => {
     newBranch(branch, {
       base: options.base,
-      fetch: options.fetch,
       open: options.open,
       editor: options.editor,
     });
