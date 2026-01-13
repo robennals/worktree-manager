@@ -320,6 +320,41 @@ export function commitExists(sha: string, cwd?: string): boolean {
 }
 
 /**
+ * Check if a branch has any content differences from another branch.
+ * Returns true if there are differences (i.e., branch has changes not in target).
+ */
+export function hasDiffFromBranch(
+  branch: string,
+  targetBranch: string,
+  cwd?: string
+): boolean {
+  const result = execGit(
+    ["diff", "--quiet", targetBranch, `refs/heads/${branch}`, "--"],
+    cwd
+  );
+  // git diff --quiet returns 0 if no differences, 1 if there are differences
+  return !result.success;
+}
+
+/**
+ * Check if a branch has non-merge commits after a given commit SHA.
+ * Returns true if there are non-merge commits (i.e., actual new work).
+ */
+export function hasNonMergeCommitsAfter(
+  branch: string,
+  afterSha: string,
+  cwd?: string
+): boolean {
+  // Get commits after the given SHA, excluding merge commits
+  const result = execGit(
+    ["log", "--oneline", "--no-merges", `${afterSha}..refs/heads/${branch}`],
+    cwd
+  );
+  // If there's any output, there are non-merge commits
+  return result.success && result.output.length > 0;
+}
+
+/**
  * Get the default branch name (main or master)
  */
 export function getDefaultBranch(cwd?: string): string {
