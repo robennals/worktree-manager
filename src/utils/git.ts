@@ -1,5 +1,5 @@
 import { execSync, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 export interface WorktreeInfo {
@@ -8,6 +8,21 @@ export interface WorktreeInfo {
   branch: string | null;
   bare: boolean;
   detached: boolean;
+}
+
+export interface ContextInfo {
+  /** Whether we are inside a git repository */
+  inGitRepo: boolean;
+  /** The root of the current git repository (if in one) */
+  repoRoot: string | null;
+  /** The current branch name (if in a repo) */
+  currentBranch: string | null;
+  /** Whether we appear to be in a wtm parent directory (contains git worktrees) */
+  inWtmParent: boolean;
+  /** Path to a git repo we can use for worktree operations (even if cwd isn't in git) */
+  workableRepoPath: string | null;
+  /** Warning message if the current branch doesn't match the expected folder name */
+  branchMismatchWarning: string | null;
 }
 
 export interface ExecResult {
@@ -334,4 +349,176 @@ export function getDefaultBranch(cwd?: string): string {
   if (remoteBranchExists("master", "origin", cwd)) return "master";
 
   return "main";
+}
+
+/**
+ * Check if a directory appears to be a wtm parent directory
+ * (contains subdirectories that are git worktrees of the same repo)
+ */
+export function isWtmParentDirectory(dirPath: string): boolean {
+  if (!existsSync(dirPath)) return false;
+
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true });
+    const subdirs = entries.filter((e: { isDirectory: () => boolean; name: string }) => e.isDirectory() && !e.name.startsWith("."));
+
+    // Look for at least one subdirectory that is a git repo
+    let foundGitRepo = false;
+    for (const subdir of subdirs) {
+      const subdirPath = path.join(dirPath, subdir.name);
+      if (isInsideGitRepo(subdirPath)) {
+        foundGitRepo = true;
+        break;
+      }
+    }
+    return foundGitRepo;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Find a git repository in the wtm parent directory
+ * Prefers 'main' directory, then any worktree on the default branch, then any git repo
+ */
+export function findRepoInWtmParent(parentPath: string): string | null {
+  // First check if 'main' exists and is a git repo
+  const mainPath = path.join(parentPath, "main");
+  if (existsSync(mainPath) && isInsideGitRepo(mainPath)) {
+    return mainPath;
+  }
+
+  // Otherwise find any subdirectory that is a git repo
+  // Prefer one that's on the default branch (main/master)
+  try {
+    const entries = readdirSync(parentPath, { withFileTypes: true });
+    const gitRepos: string[] = [];
+
+    for (const entry of entries) {
+      if (entry.isDirectory() && !entry.name.startsWith(".")) {
+        const subdirPath = path.join(parentPath, entry.name);
+        if (isInsideGitRepo(subdirPath)) {
+          gitRepos.push(subdirPath);
+        }
+      }
+    }
+
+    if (gitRepos.length === 0) return null;
+
+    // Check if any repo is on main/master branch - that's likely the "main" worktree
+    for (const repoPath of gitRepos) {
+      const branch = getCurrentBranch(repoPath);
+      if (branch === "main" || branch === "master") {
+        return repoPath;
+      }
+    }
+
+    // Fall back to first repo found
+    return gitRepos[0];
+  } catch {
+    // Ignore errors
+  }
+  return null;
+}
+
+/**
+ * Find a worktree that's on the specified base branch
+ * Used when running 'wtm new' from a wtm parent directory
+ */
+export function findWorktreeOnBranch(
+  parentPath: string,
+  targetBranch: string
+): string | null {
+  try {
+    const entries = readdirSync(parentPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isDirectory() && !entry.name.startsWith(".")) {
+        const subdirPath = path.join(parentPath, entry.name);
+        if (isInsideGitRepo(subdirPath)) {
+          const branch = getCurrentBranch(subdirPath);
+          if (branch === targetBranch) {
+            return subdirPath;
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+  return null;
+}
+
+/**
+ * Get comprehensive context about the current working directory
+ * This helps commands behave correctly regardless of where they're run from
+ */
+export function getContext(): ContextInfo {
+  const cwd = process.cwd();
+
+  // Check if we're inside a git repo
+  const inGitRepo = isInsideGitRepo(cwd);
+  const repoRoot = inGitRepo ? getRepoRoot(cwd) : null;
+  const currentBranch = inGitRepo ? getCurrentBranch(cwd) : null;
+
+  // Check if current directory is a wtm parent (contains worktrees but isn't a git repo itself)
+  let inWtmParent = false;
+  let workableRepoPath: string | null = repoRoot;
+
+  if (!inGitRepo) {
+    // Not in a git repo - check if we're in a wtm parent directory
+    inWtmParent = isWtmParentDirectory(cwd);
+    if (inWtmParent) {
+      workableRepoPath = findRepoInWtmParent(cwd);
+    }
+  }
+
+  // Check for branch/folder mismatch
+  let branchMismatchWarning: string | null = null;
+  if (inGitRepo && repoRoot && currentBranch) {
+    const folderName = path.basename(repoRoot);
+    const expectedBranch = folderName.replace(/-/g, "/");
+    const expectedFolder = branchToFolder(currentBranch);
+
+    // Don't warn for 'main' or 'master' folders since they're expected to be the main branch
+    if (folderName !== "main" && folderName !== "master") {
+      // Check if folder name doesn't match branch (accounting for slash->dash conversion)
+      if (folderName !== expectedFolder && expectedBranch !== currentBranch) {
+        branchMismatchWarning =
+          `Warning: Folder '${folderName}' has branch '${currentBranch}' checked out ` +
+          `(expected branch matching folder name).`;
+      }
+    }
+  }
+
+  return {
+    inGitRepo,
+    repoRoot,
+    currentBranch,
+    inWtmParent,
+    workableRepoPath,
+    branchMismatchWarning,
+  };
+}
+
+/**
+ * Ensure we have a workable git repository context
+ * Returns the path to use as cwd for git operations, or exits with helpful error
+ */
+export function ensureGitContext(): { repoPath: string; warning: string | null } {
+  const context = getContext();
+
+  if (context.inGitRepo && context.repoRoot) {
+    return { repoPath: context.repoRoot, warning: context.branchMismatchWarning };
+  }
+
+  if (context.inWtmParent && context.workableRepoPath) {
+    return {
+      repoPath: context.workableRepoPath,
+      warning: `Note: Running from wtm parent directory, using '${path.basename(context.workableRepoPath)}' for git operations.`,
+    };
+  }
+
+  // Not in a usable location
+  return { repoPath: "", warning: null };
 }

@@ -4,6 +4,19 @@ import * as git from "../utils/git.js";
 
 vi.mock("../utils/git.js");
 
+// Helper to create a mock context
+function mockContext(overrides: Partial<git.ContextInfo> = {}): git.ContextInfo {
+  return {
+    inGitRepo: true,
+    repoRoot: "/projects/myrepo",
+    currentBranch: "main",
+    inWtmParent: false,
+    workableRepoPath: "/projects/myrepo",
+    branchMismatchWarning: null,
+    ...overrides,
+  };
+}
+
 describe("delete command", () => {
   const originalExit = process.exit;
 
@@ -14,7 +27,7 @@ describe("delete command", () => {
     process.exit = vi.fn() as never;
 
     // Default mocks
-    vi.mocked(git.isInsideGitRepo).mockReturnValue(true);
+    vi.mocked(git.getContext).mockReturnValue(mockContext());
     vi.mocked(git.findWorktreeByBranch).mockReturnValue({
       path: "/projects/feature-test",
       head: "abc123",
@@ -35,7 +48,12 @@ describe("delete command", () => {
 
   describe("validation", () => {
     it("should exit with error when not inside a git repository", () => {
-      vi.mocked(git.isInsideGitRepo).mockReturnValue(false);
+      vi.mocked(git.getContext).mockReturnValue(mockContext({
+        inGitRepo: false,
+        repoRoot: null,
+        workableRepoPath: null,
+        inWtmParent: false,
+      }));
 
       del("feature/test");
 
@@ -105,7 +123,8 @@ describe("delete command", () => {
 
       expect(git.removeWorktree).toHaveBeenCalledWith(
         "/projects/feature-test",
-        undefined
+        undefined,
+        "/projects/myrepo"
       );
     });
 
@@ -114,7 +133,8 @@ describe("delete command", () => {
 
       expect(git.removeWorktree).toHaveBeenCalledWith(
         "/projects/feature-test",
-        true
+        true,
+        "/projects/myrepo"
       );
     });
 
@@ -144,7 +164,8 @@ describe("delete command", () => {
 
       expect(git.deleteBranch).toHaveBeenCalledWith(
         "feature/test",
-        true
+        true,
+        "/projects/myrepo"
       );
     });
 
@@ -189,11 +210,13 @@ describe("delete command", () => {
 
       expect(git.removeWorktree).toHaveBeenCalledWith(
         "/projects/feature-test",
-        true
+        true,
+        "/projects/myrepo"
       );
       expect(git.deleteBranch).toHaveBeenCalledWith(
         "feature/test",
-        true
+        true,
+        "/projects/myrepo"
       );
     });
   });

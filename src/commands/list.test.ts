@@ -8,6 +8,19 @@ vi.mock("../utils/git.js");
 vi.mock("../utils/github.js");
 vi.mock("../utils/cache.js");
 
+// Helper to create a mock context
+function mockContext(overrides: Partial<git.ContextInfo> = {}): git.ContextInfo {
+  return {
+    inGitRepo: true,
+    repoRoot: "/projects/myrepo",
+    currentBranch: "main",
+    inWtmParent: false,
+    workableRepoPath: "/projects/myrepo",
+    branchMismatchWarning: null,
+    ...overrides,
+  };
+}
+
 describe("list command", () => {
   const originalExit = process.exit;
 
@@ -17,7 +30,7 @@ describe("list command", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     process.exit = vi.fn() as never;
 
-    vi.mocked(git.isInsideGitRepo).mockReturnValue(true);
+    vi.mocked(git.getContext).mockReturnValue(mockContext());
     vi.mocked(git.isGitHubRepo).mockReturnValue(false); // Default to non-GitHub repo
     vi.mocked(github.isGhCliAvailable).mockReturnValue(false);
     vi.mocked(cache.getCachedPRNumbers).mockReturnValue(new Map());
@@ -30,7 +43,12 @@ describe("list command", () => {
 
   describe("validation", () => {
     it("should exit with error when not inside a git repository", () => {
-      vi.mocked(git.isInsideGitRepo).mockReturnValue(false);
+      vi.mocked(git.getContext).mockReturnValue(mockContext({
+        inGitRepo: false,
+        repoRoot: null,
+        workableRepoPath: null,
+        inWtmParent: false,
+      }));
       // Mock process.exit to throw to stop execution
       vi.mocked(process.exit).mockImplementation(() => {
         throw new Error("process.exit");

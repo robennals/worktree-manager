@@ -10,6 +10,19 @@ vi.mock("../utils/git.js");
 vi.mock("../utils/editor.js");
 vi.mock("../utils/init-script.js");
 
+// Helper to create a mock context
+function mockContext(overrides: Partial<git.ContextInfo> = {}): git.ContextInfo {
+  return {
+    inGitRepo: true,
+    repoRoot: "/projects/myrepo",
+    currentBranch: "main",
+    inWtmParent: false,
+    workableRepoPath: "/projects/myrepo",
+    branchMismatchWarning: null,
+    ...overrides,
+  };
+}
+
 describe("open command", () => {
   const originalExit = process.exit;
 
@@ -20,7 +33,7 @@ describe("open command", () => {
     process.exit = vi.fn() as never;
 
     // Default mocks
-    vi.mocked(git.isInsideGitRepo).mockReturnValue(true);
+    vi.mocked(git.getContext).mockReturnValue(mockContext());
     vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-test");
     vi.mocked(editor.openInEditor).mockResolvedValue(true);
     vi.mocked(initScript.runInitScriptWithWarning).mockReturnValue(undefined);
@@ -33,7 +46,12 @@ describe("open command", () => {
 
   describe("validation", () => {
     it("should exit with error when not inside a git repository", async () => {
-      vi.mocked(git.isInsideGitRepo).mockReturnValue(false);
+      vi.mocked(git.getContext).mockReturnValue(mockContext({
+        inGitRepo: false,
+        repoRoot: null,
+        workableRepoPath: null,
+        inWtmParent: false,
+      }));
 
       await open("feature/test");
 
@@ -86,7 +104,7 @@ describe("open command", () => {
 
       await open("feature/test");
 
-      expect(git.addWorktree).toHaveBeenCalledWith("feature/test");
+      expect(git.addWorktree).toHaveBeenCalledWith("feature/test", "/projects/myrepo");
       expect(initScript.runInitScriptWithWarning).toHaveBeenCalledWith(
         "/projects/feature-test"
       );
@@ -123,7 +141,8 @@ describe("open command", () => {
 
       expect(git.addWorktreeTracking).toHaveBeenCalledWith(
         "feature/test",
-        "origin/feature/test"
+        "origin/feature/test",
+        "/projects/myrepo"
       );
       expect(initScript.runInitScriptWithWarning).toHaveBeenCalledWith(
         "/projects/feature-test"

@@ -6,6 +6,19 @@ import * as initScript from "../utils/init-script.js";
 vi.mock("../utils/git.js");
 vi.mock("../utils/init-script.js");
 
+// Helper to create a mock context
+function mockContext(overrides: Partial<git.ContextInfo> = {}): git.ContextInfo {
+  return {
+    inGitRepo: true,
+    repoRoot: "/projects/myrepo",
+    currentBranch: "main",
+    inWtmParent: false,
+    workableRepoPath: "/projects/myrepo",
+    branchMismatchWarning: null,
+    ...overrides,
+  };
+}
+
 describe("add command", () => {
   const originalExit = process.exit;
 
@@ -16,7 +29,7 @@ describe("add command", () => {
     process.exit = vi.fn() as never;
 
     // Default mocks
-    vi.mocked(git.isInsideGitRepo).mockReturnValue(true);
+    vi.mocked(git.getContext).mockReturnValue(mockContext());
     vi.mocked(git.worktreePathExists).mockReturnValue(false);
     vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-test");
     vi.mocked(initScript.runInitScriptWithWarning).mockReturnValue(undefined);
@@ -29,7 +42,12 @@ describe("add command", () => {
 
   describe("validation", () => {
     it("should exit with error when not inside a git repository", async () => {
-      vi.mocked(git.isInsideGitRepo).mockReturnValue(false);
+      vi.mocked(git.getContext).mockReturnValue(mockContext({
+        inGitRepo: false,
+        repoRoot: null,
+        workableRepoPath: null,
+        inWtmParent: false,
+      }));
 
       await add("feature/test");
 
@@ -54,7 +72,7 @@ describe("add command", () => {
 
       await add("feature/test");
 
-      expect(git.addWorktree).toHaveBeenCalledWith("feature/test");
+      expect(git.addWorktree).toHaveBeenCalledWith("feature/test", "/projects/myrepo");
       expect(git.addWorktreeTracking).not.toHaveBeenCalled();
     });
 
@@ -97,7 +115,8 @@ describe("add command", () => {
 
       expect(git.addWorktreeTracking).toHaveBeenCalledWith(
         "feature/test",
-        "origin/feature/test"
+        "origin/feature/test",
+        "/projects/myrepo"
       );
       expect(git.addWorktree).not.toHaveBeenCalled();
     });
