@@ -8,6 +8,7 @@ import {
   getDefaultBranch,
   getCurrentBranch,
   pullFastForward,
+  pushWithUpstream,
 } from "../utils/git.js";
 import { runInitScriptWithWarning } from "../utils/init-script.js";
 import { openInEditor } from "../utils/editor.js";
@@ -78,6 +79,14 @@ export async function newBranch(
   if (!result.success) {
     console.error(chalk.red(`Error: ${result.error}`));
     process.exit(1);
+  }
+
+  // Push the branch to origin and set up tracking
+  console.log(chalk.blue(`Pushing branch '${branch}' to origin...`));
+  const pushResult = pushWithUpstream(branch, "origin", wtPath);
+  if (!pushResult.success) {
+    console.warn(chalk.yellow(`Warning: Could not push branch to origin: ${pushResult.error}`));
+    console.log(chalk.dim(`You can push manually later with: git push -u origin ${branch}`));
   }
 
   console.log(chalk.green(`Created new branch '${branch}' and worktree at ${wtPath}`));

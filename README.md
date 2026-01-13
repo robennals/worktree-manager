@@ -222,6 +222,42 @@ Configure `wtm` by creating a `.wtmrc.json` file in the worktrees parent directo
 
 If no editor is configured, `wtm` will show a warning and fall back to the `EDITOR` environment variable, then try `cursor`, `code`, and `vim` in order.
 
+## Working with Forks
+
+When contributing to repositories you don't have write access to (e.g., open source projects), you need to work with a fork. `wtm clone` will fail if you try to clone a repo without write access, since `wtm` needs to push branches.
+
+### Recommended Workflow
+
+```bash
+# 1. Fork the repository on GitHub
+gh repo fork owner/repo --clone=false
+
+# 2. Clone YOUR fork (not the original) with wtm
+wtm clone https://github.com/YOUR-USERNAME/repo.git
+cd repo/main
+
+# 3. Create feature branches as normal
+wtm new feature/my-contribution
+
+# 4. Make changes, commit, then push and create PR
+git push
+gh pr create  # Automatically targets the upstream repo
+```
+
+### Keeping Your Fork Up to Date
+
+Before creating a new feature branch, sync your fork with the upstream repo:
+
+```bash
+gh repo sync  # Syncs your fork's main branch with upstream
+```
+
+Then `wtm new` will fetch and branch from the updated `origin/main`.
+
+### Why This Works
+
+When you fork a repo with `gh repo fork`, GitHub remembers the relationship between your fork and the original ("upstream") repository. `gh repo sync` uses this to update your fork, and `gh pr create` automatically targets the upstream repo for PRs.
+
 ## Common Workflows
 
 ### Starting a New Feature
