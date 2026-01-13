@@ -31,7 +31,7 @@ export type WorktreeStatus =
   | "Closed"
   | "Changes since Merge"
   | "Main"
-  | "Modified";
+  | "Uncommitted Changes";
 
 export interface WorktreeListItem {
   name: string;
@@ -112,18 +112,35 @@ function getWorktreeStatuses(
   // Batch fetch all PR statuses (one API call)
   const prStatuses = batchGetPRStatuses(allPRNumbers);
 
+  // Track branches that need cache updates (stale cache entries)
+  const cacheUpdates = new Map<string, number>();
+
   // Map PR numbers back to branches and determine status
   for (const branch of featureBranches) {
-    const prNumber = cachedNumbers.get(branch);
+    let prNumber = cachedNumbers.get(branch);
+    let prStatus = prNumber ? prStatuses.get(prNumber) : undefined;
 
-    if (!prNumber) {
-      result.set(branch, { status: "No PR", prNumber: null });
-      continue;
+    // Validate that the cached PR actually belongs to this branch
+    // If not, the cache is stale (e.g., old PR was closed and new one created)
+    if (prStatus && prStatus.headRefName !== branch) {
+      // Stale cache - look up the correct PR
+      const freshPR = findPRForBranch(branch);
+      if (freshPR) {
+        prNumber = freshPR.number;
+        prStatus = {
+          number: freshPR.number,
+          state: freshPR.state as "OPEN" | "MERGED" | "CLOSED",
+          headRefOid: freshPR.headRefOid || "",
+          headRefName: freshPR.headRefName || branch,
+        };
+        cacheUpdates.set(branch, freshPR.number);
+      } else {
+        prNumber = undefined;
+        prStatus = undefined;
+      }
     }
 
-    const prStatus = prStatuses.get(prNumber);
-    if (!prStatus) {
-      // PR number cached but couldn't fetch status - might be deleted
+    if (!prNumber || !prStatus) {
       result.set(branch, { status: "No PR", prNumber: null });
       continue;
     }
@@ -134,11 +151,6 @@ function getWorktreeStatuses(
       result.set(branch, { status: "Closed", prNumber });
     } else if (prStatus.state === "MERGED") {
       // For merged PRs, check if there are non-merge commits after the PR head.
-      // This handles all cases correctly:
-      // - Same commits as PR: no new commits → Merged
-      // - Pulled merge commit: only merge commits → Merged
-      // - Someone added commits to PR but we haven't pulled: PR head doesn't exist → Merged
-      // - New commits with actual changes: has non-merge commits → Changes since Merge
       const localSha = getBranchHeadSha(branch);
       if (localSha === prStatus.headRefOid) {
         // Exact match - definitely merged
@@ -147,13 +159,44 @@ function getWorktreeStatuses(
         // PR head commit doesn't exist locally - assume merged
         result.set(branch, { status: "Merged", prNumber });
       } else if (hasNonMergeCommitsAfter(branch, prStatus.headRefOid)) {
-        // Has non-merge commits after PR head - actual new work
-        result.set(branch, { status: "Changes since Merge", prNumber });
+        // Local has non-merge commits after PR head. This could mean:
+        // 1. User made new commits after PR was merged
+        // 2. There's a newer PR that was merged (cached PR number is stale)
+        // Check if there's a newer PR with a matching head
+        const freshPR = findPRForBranch(branch);
+        if (freshPR && freshPR.number !== prNumber && freshPR.state === "MERGED") {
+          // Found a different, newer merged PR - check if it matches
+          if (localSha === freshPR.headRefOid) {
+            // New PR matches local - update cache and show merged
+            cacheUpdates.set(branch, freshPR.number);
+            result.set(branch, { status: "Merged", prNumber: freshPR.number });
+          } else if (!freshPR.headRefOid || !commitExists(freshPR.headRefOid)) {
+            // New PR head doesn't exist locally - assume merged
+            cacheUpdates.set(branch, freshPR.number);
+            result.set(branch, { status: "Merged", prNumber: freshPR.number });
+          } else if (!hasNonMergeCommitsAfter(branch, freshPR.headRefOid)) {
+            // New PR with only merge commits after - merged
+            cacheUpdates.set(branch, freshPR.number);
+            result.set(branch, { status: "Merged", prNumber: freshPR.number });
+          } else {
+            // Even with newer PR, still has changes
+            cacheUpdates.set(branch, freshPR.number);
+            result.set(branch, { status: "Changes since Merge", prNumber: freshPR.number });
+          }
+        } else {
+          // No newer PR, actual new work after merge
+          result.set(branch, { status: "Changes since Merge", prNumber });
+        }
       } else {
         // Only merge commits after PR head - just pulled merge commit
         result.set(branch, { status: "Merged", prNumber });
       }
     }
+  }
+
+  // Update cache with any stale entries we discovered
+  if (cacheUpdates.size > 0) {
+    updateCachedPRNumbers(cacheUpdates);
   }
 
   return result;
@@ -178,8 +221,8 @@ function formatStatus(status: WorktreeStatus | null): string {
       return chalk.yellow("Changes since Merge");
     case "Main":
       return chalk.cyan("Main");
-    case "Modified":
-      return chalk.yellow("Modified");
+    case "Uncommitted Changes":
+      return chalk.yellow("Uncommitted Changes");
   }
 }
 
@@ -234,7 +277,7 @@ export function list(options: ListOptions = {}): void {
     // since a worktree with uncommitted changes shouldn't be considered done
     let status = statusInfo?.status ?? null;
     if (status === "Merged" && hasUncommittedChanges(wt.path)) {
-      status = "Modified";
+      status = "Uncommitted Changes";
     }
 
     return {
