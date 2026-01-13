@@ -228,6 +228,7 @@ describe("sweep command", () => {
         headRefOid: "old123",
       });
       vi.mocked(git.getBranchHeadSha).mockReturnValue("new456");
+      vi.mocked(git.isAncestor).mockReturnValue(false);
 
       await sweep();
 
@@ -388,9 +389,7 @@ describe("sweep command", () => {
         title: "Test PR",
         headRefOid: "abc123",
       });
-      vi.mocked(git.getBranchHeadSha)
-        .mockReturnValueOnce("abc123")
-        .mockReturnValueOnce("abc123");
+      vi.mocked(git.getBranchHeadSha).mockReturnValue("abc123");
       vi.mocked(git.removeWorktree)
         .mockReturnValueOnce({ success: false, output: "", error: "failed" })
         .mockReturnValueOnce({ success: true, output: "" });
