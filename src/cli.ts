@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { add, newBranch, list, open, del, sweep } from "./commands/index.js";
+import { add, newBranch, list, open, del, sweep, clone } from "./commands/index.js";
 
 const program = new Command();
 
@@ -33,15 +33,20 @@ if it exists. See 'wtm new --help' for details on the init script.
 // New command - create new branch and worktree
 program
   .command("new <branch>")
-  .description("Create a new branch and worktree from the base branch")
+  .description("Create a new branch and worktree from the latest origin/main")
   .option("-b, --base <branch>", "Base branch to create from (default: main)")
-  .option("--no-fetch", "Skip fetching the base branch before creating")
+  .option("--no-open", "Don't open the worktree in an editor after creation")
+  .option("-e, --editor <name>", "Editor to use when opening")
   .addHelpText(
     "after",
     `
 Examples:
-  $ wtm new feature/auth          # Create from main branch
-  $ wtm new bugfix/123 -b develop # Create from develop branch
+  $ wtm new feature/auth          # Create from latest origin/main
+  $ wtm new bugfix/123 -b develop # Create from latest origin/develop
+  $ wtm new feature/x --no-open   # Create without opening editor
+  $ wtm new feature/y -e code     # Create and open in VS Code
+
+${chalk.dim("Note: Always fetches and branches from origin/<base> to ensure you have the latest code.")}
 
 ${chalk.bold("Init Script (.wtm-init):")}
 
@@ -77,7 +82,8 @@ ${chalk.dim("If no .wtm-init script exists, a reminder will be shown suggesting 
   .action((branch, options) => {
     newBranch(branch, {
       base: options.base,
-      fetch: options.fetch,
+      open: options.open,
+      editor: options.editor,
     });
   });
 
@@ -166,15 +172,43 @@ Protected branches (main, master) are never removed.
     sweep({ dryRun: options.dryRun, force: options.force });
   });
 
+// Clone command - clone a repo and set up wtm structure
+program
+  .command("clone <repo-url>")
+  .description("Clone a repository and set up wtm folder structure")
+  .option("-n, --name <name>", "Custom name for the project directory")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ wtm clone https://github.com/user/repo.git
+  $ wtm clone git@github.com:user/repo.git
+  $ wtm clone https://github.com/user/repo.git -n my-project
+
+This creates a folder structure optimized for worktree management:
+
+  repo/
+  └── main/     # The cloned repository
+
+You can then use 'wtm new' to create feature branches as sibling directories.
+`
+  )
+  .action((repoUrl, options) => {
+    clone(repoUrl, { name: options.name });
+  });
+
 // Add helpful examples to the main help
 program.addHelpText(
   "after",
   `
 ${chalk.bold("Common Workflows:")}
 
+  Clone a new repository:
+    $ wtm clone https://github.com/user/repo.git
+    $ cd repo/main
+
   Start working on a new feature:
-    $ wtm new feature/my-feature
-    $ wtm open feature/my-feature
+    $ wtm new feature/my-feature  # Creates branch, worktree, and opens editor
 
   Switch to an existing branch:
     $ wtm add bugfix/123
@@ -190,6 +224,8 @@ ${chalk.bold("Tips:")}
   • Branch names with slashes are converted to dashes in folder names
   • Create a .wtm-init script to automate setup tasks for new worktrees
     (see 'wtm new --help' for details)
+  • Configure your editor in .wtmrc.json: { "editor": "code" }
+  • Set autoOpenOnNew: false in .wtmrc.json to disable auto-open on wtm new
 
 ${chalk.dim("For more info on a command, run: wtm <command> --help")}
 `

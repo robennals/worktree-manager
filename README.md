@@ -18,11 +18,12 @@ yarn global add wtm-cli
 ## Quick Start
 
 ```bash
-# Create a new feature branch and worktree
-wtm new feature/my-feature
+# Clone a repository with wtm folder structure
+wtm clone https://github.com/user/repo.git
+cd repo/main
 
-# Open it in your editor
-wtm open feature/my-feature
+# Create a new feature branch and worktree (opens in editor automatically)
+wtm new feature/my-feature
 
 # List all worktrees
 wtm list
@@ -33,18 +34,42 @@ wtm sweep
 
 ## Commands
 
-### `wtm new <branch>`
+### `wtm clone <repo-url>`
 
-Create a new branch and worktree from the base branch.
+Clone a repository and set up the wtm folder structure. This creates a parent directory containing the cloned repo in a `main` subdirectory, ready for worktree management.
 
 ```bash
-wtm new feature/auth          # Create from main branch
-wtm new bugfix/123 -b develop # Create from develop branch
+wtm clone https://github.com/user/repo.git
+wtm clone git@github.com:user/repo.git
+wtm clone https://github.com/user/repo.git -n my-project  # Custom directory name
+```
+
+**Options:**
+- `-n, --name <name>` - Custom name for the project directory (defaults to repo name)
+
+This creates:
+```
+repo/
+└── main/     # The cloned repository
+```
+
+After cloning, `cd` into `main/` and use `wtm new` to create feature branches as sibling directories.
+
+### `wtm new <branch>`
+
+Create a new branch and worktree from the latest `origin/main` (or another base branch). Always fetches and branches from the remote to ensure you have the latest code. By default, opens the new worktree in your configured editor.
+
+```bash
+wtm new feature/auth          # Create from latest origin/main
+wtm new bugfix/123 -b develop # Create from latest origin/develop
+wtm new feature/x --no-open   # Create without opening editor
+wtm new feature/y -e code     # Create and open in VS Code
 ```
 
 **Options:**
 - `-b, --base <branch>` - Base branch to create from (default: main)
-- `--no-fetch` - Skip fetching the base branch before creating
+- `--no-open` - Don't open the worktree in an editor after creation
+- `-e, --editor <name>` - Editor to use when opening
 
 After creating the worktree, wtm will automatically run your `.wtm-init` script if it exists. See [Init Script](#init-script-wtm-init) for details.
 
@@ -167,6 +192,7 @@ The `.wtm-init` script should be placed in the parent directory of your worktree
 ```
 /projects/
 ├── .wtm-init          # Init script lives here
+├── .wtmrc.json        # Config file lives here
 ├── .env               # Shared .env file (optional)
 ├── myapp/             # Main repository
 ├── feature-auth/      # Worktree
@@ -175,16 +201,34 @@ The `.wtm-init` script should be placed in the parent directory of your worktree
 
 If no `.wtm-init` script exists, wtm will display a reminder suggesting you create one.
 
+## Configuration
+
+Configure `wtm` by creating a `.wtmrc.json` file in the worktrees parent directory (the folder containing all your worktrees) or in your home directory (`~/.wtmrc.json`).
+
+```json
+{
+  "editor": "code",
+  "autoOpenOnNew": true
+}
+```
+
+**Options:**
+- `editor` - The editor command to use (e.g., `"code"`, `"cursor"`, `"vim"`)
+- `autoOpenOnNew` - Whether to automatically open worktrees in the editor after `wtm new` (default: `true`)
+
+**Config file locations (in order of precedence):**
+1. Worktrees parent directory (e.g., `/projects/.wtmrc.json` if your worktrees are at `/projects/main`, `/projects/feature-x`, etc.)
+2. Home directory (`~/.wtmrc.json`)
+
+If no editor is configured, `wtm` will show a warning and fall back to the `EDITOR` environment variable, then try `cursor`, `code`, and `vim` in order.
+
 ## Common Workflows
 
 ### Starting a New Feature
 
 ```bash
-# Create branch and worktree from main
+# Create branch and worktree from main (opens in editor automatically)
 wtm new feature/my-feature
-
-# Open in your editor
-wtm open feature/my-feature
 
 # ... do your work ...
 ```

@@ -9,10 +9,13 @@ import {
   getDefaultBranch,
 } from "../utils/git.js";
 import { runInitScriptWithWarning } from "../utils/init-script.js";
+import { openInEditor } from "../utils/editor.js";
+import { isAutoOpenEnabled } from "../utils/config.js";
 
 export interface NewOptions {
   base?: string;
-  fetch?: boolean;
+  open?: boolean;
+  editor?: string;
 }
 
 /**
@@ -45,19 +48,19 @@ export async function newBranch(
   const baseBranch = options.base || getDefaultBranch();
   const wtPath = getWorktreePath(branch);
 
-  // Fetch the base branch if requested (default: true)
-  if (options.fetch !== false) {
-    console.log(chalk.blue(`Fetching origin/${baseBranch}...`));
-    const fetchResult = fetchRemote("origin", baseBranch);
-    if (!fetchResult.success) {
-      console.warn(chalk.yellow(`Warning: Could not fetch origin/${baseBranch}`));
-    }
+  // Always fetch the base branch to ensure we branch from the latest
+  console.log(chalk.blue(`Fetching origin/${baseBranch}...`));
+  const fetchResult = fetchRemote("origin", baseBranch);
+  if (!fetchResult.success) {
+    console.warn(chalk.yellow(`Warning: Could not fetch origin/${baseBranch}`));
   }
 
+  // Always branch from origin/<baseBranch> to ensure we have the latest
+  const startPoint = `origin/${baseBranch}`;
   console.log(
-    chalk.blue(`Creating new branch '${branch}' from '${baseBranch}'`)
+    chalk.blue(`Creating new branch '${branch}' from '${startPoint}'`)
   );
-  const result = await addWorktreeTracking(branch, baseBranch);
+  const result = await addWorktreeTracking(branch, startPoint);
   if (!result.success) {
     console.error(chalk.red(`Error: ${result.error}`));
     process.exit(1);
@@ -67,4 +70,21 @@ export async function newBranch(
 
   // Run init script if it exists, otherwise show a warning
   runInitScriptWithWarning(wtPath);
+
+  // Auto-open in editor unless disabled
+  // Priority: CLI flag > config file > default (true)
+  const shouldOpen = options.open !== undefined ? options.open : isAutoOpenEnabled();
+
+  if (shouldOpen) {
+    console.log(chalk.blue(`Opening worktree in editor...`));
+    const opened = await openInEditor(wtPath, options.editor);
+    if (!opened) {
+      console.error(
+        chalk.red(
+          "Error: Could not open editor. Make sure your configured editor is available."
+        )
+      );
+      process.exit(1);
+    }
+  }
 }

@@ -1,0 +1,23 @@
+export interface WtmConfig {
+    editor?: string;
+    autoOpenOnNew?: boolean;
+}
+/**
+ * Load configuration from .wtmrc.json
+ *
+ * Config is searched in the following order:
+ * 1. Worktrees parent directory (the folder containing all worktrees)
+ * 2. User's home directory (~/.wtmrc.json)
+ *
+ * Worktrees directory config takes precedence over home directory config.
+ */
+export declare function loadConfig(): WtmConfig;
+/**
+ * Get the configured editor, or undefined if not configured
+ */
+export declare function getConfiguredEditor(): string | undefined;
+/**
+ * Check if auto-open on new is enabled (defaults to true)
+ */
+export declare function isAutoOpenEnabled(): boolean;
+//# sourceMappingURL=config.d.ts.map
