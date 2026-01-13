@@ -1,6 +1,6 @@
 import chalk from "chalk";
+import path from "node:path";
 import {
-  isInsideGitRepo,
   localBranchExists,
   worktreePathExists,
   addWorktreeTracking,
@@ -9,6 +9,9 @@ import {
   getCurrentBranch,
   pullFastForward,
   pushWithUpstream,
+  getContext,
+  findRepoInWtmParent,
+  findWorktreeOnBranch,
 } from "../utils/git.js";
 import { runInitScriptWithWarning } from "../utils/init-script.js";
 import { openInEditor } from "../utils/editor.js";
@@ -27,12 +30,51 @@ export async function newBranch(
   branch: string,
   options: NewOptions = {}
 ): Promise<void> {
-  if (!isInsideGitRepo()) {
-    console.error(chalk.red("Error: Not inside a git repository."));
+  const context = getContext();
+
+  // Determine the working repo path
+  let cwd: string | undefined;
+
+  if (context.inGitRepo && context.repoRoot) {
+    cwd = context.repoRoot;
+  } else if (context.inWtmParent) {
+    // When running from wtm parent, we need to find a worktree on the base branch
+    // First, figure out what the base branch is
+    const anyRepo = findRepoInWtmParent(process.cwd());
+    if (!anyRepo) {
+      console.error(chalk.red("Error: Could not find a git repository in this wtm directory."));
+      process.exit(1);
+    }
+
+    const baseBranch = options.base || getDefaultBranch(anyRepo);
+
+    // Now find a worktree that's actually on the base branch
+    const baseWorktree = findWorktreeOnBranch(process.cwd(), baseBranch);
+
+    if (baseWorktree) {
+      cwd = baseWorktree;
+      console.log(chalk.dim(`Using repository: ${baseWorktree}\n`));
+    } else {
+      // No worktree is on the base branch
+      console.error(chalk.red(`Error: Must run 'wtm new' from the '${baseBranch}' branch.`));
+      console.log(chalk.dim(`\nNo worktree in this directory has '${baseBranch}' checked out.`));
+      console.log(chalk.dim(`Switch one of your worktrees to '${baseBranch}' first, or run from inside it.`));
+      process.exit(1);
+    }
+  } else {
+    console.error(chalk.red("Error: Not inside a git repository or wtm project directory."));
+    console.log(chalk.dim("\nRun this command from:"));
+    console.log(chalk.dim("  • Inside a git worktree on the base branch (e.g., project/main)"));
+    console.log(chalk.dim("  • A wtm project directory containing a worktree on the base branch"));
     process.exit(1);
   }
 
-  if (localBranchExists(branch)) {
+  // Show branch mismatch warning if applicable
+  if (context.branchMismatchWarning) {
+    console.log(chalk.yellow(context.branchMismatchWarning) + "\n");
+  }
+
+  if (localBranchExists(branch, cwd)) {
     console.error(chalk.red(`Error: Branch '${branch}' already exists.`));
     console.log(
       chalk.dim(`Use 'wtm add ${branch}' to add a worktree for existing branch.`)
@@ -40,18 +82,18 @@ export async function newBranch(
     process.exit(1);
   }
 
-  if (worktreePathExists(branch)) {
+  if (worktreePathExists(branch, cwd)) {
     console.error(
       chalk.red(`Error: Worktree path already exists for branch '${branch}'.`)
     );
     process.exit(1);
   }
 
-  const baseBranch = options.base || getDefaultBranch();
-  const wtPath = getWorktreePath(branch);
+  const baseBranch = options.base || getDefaultBranch(cwd);
+  const wtPath = getWorktreePath(branch, cwd);
 
   // Require running from the base branch so we can pull latest and branch from it
-  const currentBranch = getCurrentBranch();
+  const currentBranch = getCurrentBranch(cwd);
   if (currentBranch !== baseBranch) {
     console.error(
       chalk.red(`Error: Must run 'wtm new' from the '${baseBranch}' branch.`)
@@ -64,7 +106,7 @@ export async function newBranch(
 
   // Pull latest changes to the base branch
   console.log(chalk.blue(`Pulling latest changes to ${baseBranch}...`));
-  const pullResult = pullFastForward();
+  const pullResult = pullFastForward(cwd);
   if (!pullResult.success) {
     console.error(chalk.red(`Error: Could not pull latest changes: ${pullResult.error}`));
     console.log(chalk.dim(`Make sure your working tree is clean and the branch can fast-forward.`));
@@ -75,7 +117,7 @@ export async function newBranch(
   console.log(
     chalk.blue(`Creating new branch '${branch}' from '${baseBranch}'`)
   );
-  const result = await addWorktreeTracking(branch, baseBranch);
+  const result = await addWorktreeTracking(branch, baseBranch, cwd);
   if (!result.success) {
     console.error(chalk.red(`Error: ${result.error}`));
     process.exit(1);

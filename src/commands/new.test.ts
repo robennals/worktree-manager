@@ -10,6 +10,19 @@ vi.mock("../utils/init-script.js");
 vi.mock("../utils/editor.js");
 vi.mock("../utils/config.js");
 
+// Helper to create a mock context
+function mockContext(overrides: Partial<git.ContextInfo> = {}): git.ContextInfo {
+  return {
+    inGitRepo: true,
+    repoRoot: "/projects/myrepo",
+    currentBranch: "main",
+    inWtmParent: false,
+    workableRepoPath: "/projects/myrepo",
+    branchMismatchWarning: null,
+    ...overrides,
+  };
+}
+
 describe("new command", () => {
   const originalExit = process.exit;
 
@@ -21,7 +34,7 @@ describe("new command", () => {
     process.exit = vi.fn() as never;
 
     // Default mocks for successful execution
-    vi.mocked(git.isInsideGitRepo).mockReturnValue(true);
+    vi.mocked(git.getContext).mockReturnValue(mockContext());
     vi.mocked(git.localBranchExists).mockReturnValue(false);
     vi.mocked(git.worktreePathExists).mockReturnValue(false);
     vi.mocked(git.getDefaultBranch).mockReturnValue("main");
@@ -42,7 +55,12 @@ describe("new command", () => {
 
   describe("validation", () => {
     it("should exit with error when not inside a git repository", async () => {
-      vi.mocked(git.isInsideGitRepo).mockReturnValue(false);
+      vi.mocked(git.getContext).mockReturnValue(mockContext({
+        inGitRepo: false,
+        repoRoot: null,
+        workableRepoPath: null,
+        inWtmParent: false,
+      }));
 
       await newBranch("feature/test");
 
@@ -86,10 +104,11 @@ describe("new command", () => {
 
       await newBranch("feature/test");
 
-      expect(git.pullFastForward).toHaveBeenCalled();
+      expect(git.pullFastForward).toHaveBeenCalledWith("/projects/myrepo");
       expect(git.addWorktreeTracking).toHaveBeenCalledWith(
         "feature/test",
-        "main"
+        "main",
+        "/projects/myrepo"
       );
     });
 
@@ -98,10 +117,11 @@ describe("new command", () => {
 
       await newBranch("feature/test", { base: "develop" });
 
-      expect(git.pullFastForward).toHaveBeenCalled();
+      expect(git.pullFastForward).toHaveBeenCalledWith("/projects/myrepo");
       expect(git.addWorktreeTracking).toHaveBeenCalledWith(
         "feature/test",
-        "develop"
+        "develop",
+        "/projects/myrepo"
       );
     });
 

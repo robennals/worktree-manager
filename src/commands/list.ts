@@ -1,10 +1,10 @@
 import chalk from "chalk";
 import {
-  isInsideGitRepo,
   listWorktrees,
   WorktreeInfo,
   getBranchHeadSha,
   isGitHubRepo,
+  getContext,
 } from "../utils/git.js";
 import {
   isGhCliAvailable,
@@ -40,7 +40,8 @@ export interface WorktreeListItem {
  * Uses cache for PR numbers and batch fetches statuses
  */
 function getWorktreeStatuses(
-  worktrees: WorktreeInfo[]
+  worktrees: WorktreeInfo[],
+  cwd?: string
 ): Map<string, { status: WorktreeStatus; prNumber: number | null }> {
   const result = new Map<
     string,
@@ -54,7 +55,10 @@ function getWorktreeStatuses(
   if (branches.length === 0) return result;
 
   // Check if GitHub is available
-  if (!isGitHubRepo() || !isGhCliAvailable()) {
+  const ghAvailable = isGhCliAvailable();
+  const isGitHub = isGitHubRepo(cwd);
+
+  if (!isGitHub || !ghAvailable) {
     // No GitHub access - all are "No PR"
     for (const branch of branches) {
       result.set(branch, { status: "No PR", prNumber: null });
@@ -155,12 +159,27 @@ function getDisplayName(wt: WorktreeInfo): string {
  * List all worktrees with their PR status
  */
 export function list(options: ListOptions = {}): void {
-  if (!isInsideGitRepo()) {
-    console.error(chalk.red("Error: Not inside a git repository."));
+  const context = getContext();
+
+  if (!context.inGitRepo && !context.inWtmParent) {
+    console.error(chalk.red("Error: Not inside a git repository or wtm project directory."));
+    console.log(chalk.dim("\nRun this command from:"));
+    console.log(chalk.dim("  • Inside a git worktree (e.g., project/main or project/feature-x)"));
+    console.log(chalk.dim("  • A wtm project directory containing worktrees"));
     process.exit(1);
   }
 
-  const worktrees = listWorktrees();
+  // If in wtm parent, note which repo we're using
+  if (context.inWtmParent && context.workableRepoPath) {
+    console.log(chalk.dim(`Using repository: ${context.workableRepoPath}\n`));
+  }
+
+  // Show branch mismatch warning if applicable
+  if (context.branchMismatchWarning) {
+    console.log(chalk.yellow(context.branchMismatchWarning) + "\n");
+  }
+
+  const worktrees = listWorktrees(context.workableRepoPath ?? undefined);
 
   if (worktrees.length === 0) {
     console.log(chalk.yellow("No worktrees found."));
@@ -168,7 +187,7 @@ export function list(options: ListOptions = {}): void {
   }
 
   // Get statuses for all worktrees
-  const statuses = getWorktreeStatuses(worktrees);
+  const statuses = getWorktreeStatuses(worktrees, context.workableRepoPath ?? undefined);
 
   // Build list items
   const items: WorktreeListItem[] = worktrees.map((wt) => {
