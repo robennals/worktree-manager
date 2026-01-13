@@ -4,10 +4,11 @@ import {
   WorktreeInfo,
   isGitHubRepo,
   getContext,
-  getBranchHeadSha,
-  isAncestor,
-  commitExists,
   getDefaultBranch,
+  hasUncommittedChanges,
+  getBranchHeadSha,
+  commitExists,
+  hasNonMergeCommitsAfter,
 } from "../utils/git.js";
 import {
   isGhCliAvailable,
@@ -29,7 +30,8 @@ export type WorktreeStatus =
   | "Merged"
   | "Closed"
   | "Changes since Merge"
-  | "Main";
+  | "Main"
+  | "Modified";
 
 export interface WorktreeListItem {
   name: string;
@@ -131,29 +133,24 @@ function getWorktreeStatuses(
     } else if (prStatus.state === "CLOSED") {
       result.set(branch, { status: "Closed", prNumber });
     } else if (prStatus.state === "MERGED") {
-      // Check if local branch has changes since the PR was merged.
-      // The branch is considered merged if:
-      // 1. Local SHA matches the PR's headRefOid exactly, OR
-      // 2. Local branch is an ancestor of the PR's headRefOid (e.g., someone
-      //    added commits to the PR after you pushed), OR
-      // 3. The PR's headRefOid doesn't exist locally (can't verify, assume merged)
+      // For merged PRs, check if there are non-merge commits after the PR head.
+      // This handles all cases correctly:
+      // - Same commits as PR: no new commits → Merged
+      // - Pulled merge commit: only merge commits → Merged
+      // - Someone added commits to PR but we haven't pulled: PR head doesn't exist → Merged
+      // - New commits with actual changes: has non-merge commits → Changes since Merge
       const localSha = getBranchHeadSha(branch);
       if (localSha === prStatus.headRefOid) {
+        // Exact match - definitely merged
         result.set(branch, { status: "Merged", prNumber });
-      } else if (localSha) {
-        // Check if PR head commit exists locally
-        const prHeadExists = commitExists(prStatus.headRefOid);
-        if (!prHeadExists) {
-          // Can't verify - assume merged since PR is marked as merged
-          result.set(branch, { status: "Merged", prNumber });
-        } else if (isAncestor(localSha, prStatus.headRefOid)) {
-          // Local is an ancestor of PR head - someone added commits after we pushed
-          result.set(branch, { status: "Merged", prNumber });
-        } else {
-          // Local has diverged from what was merged
-          result.set(branch, { status: "Changes since Merge", prNumber });
-        }
+      } else if (!commitExists(prStatus.headRefOid)) {
+        // PR head commit doesn't exist locally - assume merged
+        result.set(branch, { status: "Merged", prNumber });
+      } else if (hasNonMergeCommitsAfter(branch, prStatus.headRefOid)) {
+        // Has non-merge commits after PR head - actual new work
+        result.set(branch, { status: "Changes since Merge", prNumber });
       } else {
+        // Only merge commits after PR head - just pulled merge commit
         result.set(branch, { status: "Merged", prNumber });
       }
     }
@@ -181,6 +178,8 @@ function formatStatus(status: WorktreeStatus | null): string {
       return chalk.yellow("Changes since Merge");
     case "Main":
       return chalk.cyan("Main");
+    case "Modified":
+      return chalk.yellow("Modified");
   }
 }
 
@@ -231,11 +230,18 @@ export function list(options: ListOptions = {}): void {
     const name = getDisplayName(wt);
     const statusInfo = wt.branch ? statuses.get(wt.branch) : null;
 
+    // Check for uncommitted changes - this overrides "Merged" status
+    // since a worktree with uncommitted changes shouldn't be considered done
+    let status = statusInfo?.status ?? null;
+    if (status === "Merged" && hasUncommittedChanges(wt.path)) {
+      status = "Modified";
+    }
+
     return {
       name,
       path: wt.path,
       branch: wt.branch,
-      status: statusInfo?.status ?? null,
+      status,
       prNumber: statusInfo?.prNumber ?? null,
     };
   });

@@ -332,7 +332,7 @@ describe("list command", () => {
       expect(logCalls).toContain("Merged");
     });
 
-    it("should show Changes since Merge when local has new commits", () => {
+    it("should show Changes since Merge when branch has non-merge commits after PR head", () => {
       vi.mocked(git.isGitHubRepo).mockReturnValue(true);
       vi.mocked(github.isGhCliAvailable).mockReturnValue(true);
       vi.mocked(git.getDefaultBranch).mockReturnValue("main");
@@ -352,10 +352,10 @@ describe("list command", () => {
           ],
         ])
       );
-      // Local SHA is different from PR head SHA and not an ancestor
+      // Local SHA differs, PR head exists, and there are non-merge commits
       vi.mocked(git.getBranchHeadSha).mockReturnValue("def456");
-      vi.mocked(git.commitExists).mockReturnValue(true); // PR head exists locally
-      vi.mocked(git.isAncestor).mockReturnValue(false);
+      vi.mocked(git.commitExists).mockReturnValue(true);
+      vi.mocked(git.hasNonMergeCommitsAfter).mockReturnValue(true);
       vi.mocked(git.listWorktrees).mockReturnValue([
         {
           path: "/projects/feature",
@@ -372,9 +372,10 @@ describe("list command", () => {
       expect(logCalls).toContain("Changes since Merge");
     });
 
-    it("should show Merged when local is an ancestor of PR head", () => {
+    it("should show Merged when branch only has merge commits after PR head", () => {
       vi.mocked(git.isGitHubRepo).mockReturnValue(true);
       vi.mocked(github.isGhCliAvailable).mockReturnValue(true);
+      vi.mocked(git.getDefaultBranch).mockReturnValue("main");
       vi.mocked(cache.getCachedPRNumbers).mockReturnValue(
         new Map([["feature", 123]])
       );
@@ -391,13 +392,14 @@ describe("list command", () => {
           ],
         ])
       );
-      // Local SHA differs but is an ancestor (e.g., someone added commits to PR)
-      vi.mocked(git.getBranchHeadSha).mockReturnValue("old456");
-      vi.mocked(git.isAncestor).mockReturnValue(true);
+      // Local SHA differs, PR head exists, but only merge commits after PR head
+      vi.mocked(git.getBranchHeadSha).mockReturnValue("def456");
+      vi.mocked(git.commitExists).mockReturnValue(true);
+      vi.mocked(git.hasNonMergeCommitsAfter).mockReturnValue(false);
       vi.mocked(git.listWorktrees).mockReturnValue([
         {
           path: "/projects/feature",
-          head: "old456",
+          head: "def456",
           branch: "feature",
           bare: false,
           detached: false,
