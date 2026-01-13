@@ -190,9 +190,10 @@ export function list(options: ListOptions = {}): void {
   }
 
   console.log(chalk.bold("\nWorktrees:"));
-  console.log(chalk.dim("─".repeat(70)));
+  console.log(chalk.dim("─".repeat(80)));
 
   const maxNameLen = Math.max(...items.map((item) => item.name.length), 20);
+  const maxStatusLen = 20; // "Changes since Merge" is longest
 
   for (const item of items) {
     const nameStr = item.name.padEnd(maxNameLen);
@@ -201,17 +202,23 @@ export function list(options: ListOptions = {}): void {
     const wt = worktrees.find((w) => w.path === item.path)!;
 
     let statusStr: string;
+    let prStr: string;
     if (wt.bare) {
-      statusStr = chalk.dim("(bare)");
+      statusStr = chalk.dim("(bare)".padEnd(maxStatusLen));
+      prStr = "";
     } else if (wt.detached) {
-      statusStr = chalk.yellow(`(detached at ${wt.head?.substring(0, 7)})`);
+      statusStr = chalk.yellow(
+        `(detached at ${wt.head?.substring(0, 7)})`.padEnd(maxStatusLen)
+      );
+      prStr = "";
     } else {
-      statusStr = formatStatus(item.status);
+      statusStr = formatStatus(item.status).padEnd(maxStatusLen);
+      prStr = item.prNumber ? chalk.dim(`#${item.prNumber}`) : "";
     }
 
-    console.log(`  ${chalk.cyan(nameStr)}  ${statusStr}`);
+    console.log(`  ${chalk.cyan(nameStr)}  ${statusStr}  ${prStr}`);
   }
 
-  console.log(chalk.dim("─".repeat(70)));
+  console.log(chalk.dim("─".repeat(80)));
   console.log(chalk.dim(`Total: ${worktrees.length} worktree(s)\n`));
 }

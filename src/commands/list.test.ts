@@ -242,7 +242,7 @@ describe("list command", () => {
   });
 
   describe("PR status integration", () => {
-    it("should show Open status for branches with open PRs", () => {
+    it("should show Open status and PR number for branches with open PRs", () => {
       vi.mocked(git.isGitHubRepo).mockReturnValue(true);
       vi.mocked(github.isGhCliAvailable).mockReturnValue(true);
       vi.mocked(cache.getCachedPRNumbers).mockReturnValue(
@@ -275,6 +275,7 @@ describe("list command", () => {
 
       const logCalls = vi.mocked(console.log).mock.calls.flat().join(" ");
       expect(logCalls).toContain("Open");
+      expect(logCalls).toContain("#123");
     });
 
     it("should show Merged status for branches with merged PRs", () => {
