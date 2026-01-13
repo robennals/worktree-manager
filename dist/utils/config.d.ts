@@ -3,6 +3,14 @@ export interface WtmConfig {
     autoOpenOnNew?: boolean;
 }
 /**
+ * Check if the home config file (~/.wtmrc.json) exists
+ */
+export declare function hasHomeConfig(): boolean;
+/**
+ * Get path to the home config file
+ */
+export declare function getHomeConfigPath(): string;
+/**
  * Load configuration from .wtmrc.json
  *
  * Config is searched in the following order:
