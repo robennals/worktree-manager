@@ -4,6 +4,25 @@ import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { hasHomeConfig } from "../utils/config.js";
 
+/**
+ * Check if the user has write access to a repository using GitHub CLI
+ * Returns true if user has write access, false if read-only, null if check fails
+ */
+function checkWriteAccess(repoUrl: string): boolean | null {
+  try {
+    const result = execSync(`gh repo view "${repoUrl}" --json viewerPermission -q .viewerPermission`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+
+    // ADMIN and WRITE have push access, READ does not
+    return result === "ADMIN" || result === "WRITE";
+  } catch {
+    // gh CLI not available or not authenticated - skip the check
+    return null;
+  }
+}
+
 export interface CloneOptions {
   name?: string;
 }
@@ -42,6 +61,21 @@ export async function clone(
   // Check if directory already exists
   if (existsSync(wtmDir)) {
     console.error(chalk.red(`Error: Directory '${repoName}' already exists.`));
+    process.exit(1);
+  }
+
+  // Check if user has write access to the repository
+  const hasWriteAccess = checkWriteAccess(repoUrl);
+  if (hasWriteAccess === false) {
+    console.error(chalk.red("Error: You don't have write access to this repository."));
+    console.error("");
+    console.error("wtm requires write access to push branches. To contribute to this repo,");
+    console.error("you should fork it first and clone your fork:");
+    console.error("");
+    console.error(`  1. Fork the repo on GitHub:  ${chalk.cyan(`gh repo fork ${repoUrl} --clone=false`)}`);
+    console.error(`  2. Clone your fork:          ${chalk.cyan(`wtm clone <your-fork-url>`)}`);
+    console.error("");
+    console.error(chalk.dim("When you run `gh pr create`, it will automatically target the original repository."));
     process.exit(1);
   }
 

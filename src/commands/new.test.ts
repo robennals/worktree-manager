@@ -29,6 +29,7 @@ describe("new command", () => {
     vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-test");
     vi.mocked(git.pullFastForward).mockReturnValue({ success: true, output: "" });
     vi.mocked(git.addWorktreeTracking).mockResolvedValue({ success: true, output: "" });
+    vi.mocked(git.pushWithUpstream).mockReturnValue({ success: true, output: "" });
     vi.mocked(initScript.runInitScriptWithWarning).mockReturnValue(undefined);
     vi.mocked(config.isAutoOpenEnabled).mockReturnValue(true);
     vi.mocked(editor.openInEditor).mockResolvedValue(true);
