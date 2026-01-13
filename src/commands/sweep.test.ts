@@ -6,6 +6,19 @@ import * as github from "../utils/github.js";
 vi.mock("../utils/git.js");
 vi.mock("../utils/github.js");
 
+// Helper to create a mock context
+function mockContext(overrides: Partial<git.ContextInfo> = {}): git.ContextInfo {
+  return {
+    inGitRepo: true,
+    repoRoot: "/projects/myrepo",
+    currentBranch: "main",
+    inWtmParent: false,
+    workableRepoPath: "/projects/myrepo",
+    branchMismatchWarning: null,
+    ...overrides,
+  };
+}
+
 describe("sweep command", () => {
   const originalExit = process.exit;
   const originalCwd = process.cwd;
@@ -18,10 +31,9 @@ describe("sweep command", () => {
     process.cwd = vi.fn().mockReturnValue("/projects/main");
 
     // Default mocks
-    vi.mocked(git.isInsideGitRepo).mockReturnValue(true);
+    vi.mocked(git.getContext).mockReturnValue(mockContext());
     vi.mocked(github.isGhCliAvailable).mockReturnValue(true);
     vi.mocked(git.isGitHubRepo).mockReturnValue(true);
-    vi.mocked(git.getRepoRoot).mockReturnValue("/projects/main");
     vi.mocked(git.listWorktrees).mockReturnValue([]);
     vi.mocked(git.removeWorktree).mockReturnValue({ success: true, output: "" });
     vi.mocked(git.deleteBranch).mockReturnValue({ success: true, output: "" });
@@ -35,7 +47,12 @@ describe("sweep command", () => {
 
   describe("validation", () => {
     it("should exit with error when not inside a git repository", async () => {
-      vi.mocked(git.isInsideGitRepo).mockReturnValue(false);
+      vi.mocked(git.getContext).mockReturnValue(mockContext({
+        inGitRepo: false,
+        repoRoot: null,
+        workableRepoPath: null,
+        inWtmParent: false,
+      }));
 
       await sweep();
 
@@ -332,11 +349,13 @@ describe("sweep command", () => {
 
       expect(git.removeWorktree).toHaveBeenCalledWith(
         "/projects/feature",
-        undefined
+        undefined,
+        "/projects/myrepo"
       );
       expect(git.deleteBranch).toHaveBeenCalledWith(
         "feature/test",
-        true
+        true,
+        "/projects/myrepo"
       );
     });
 
@@ -362,7 +381,8 @@ describe("sweep command", () => {
 
       expect(git.removeWorktree).toHaveBeenCalledWith(
         "/projects/feature",
-        true
+        true,
+        "/projects/myrepo"
       );
     });
 

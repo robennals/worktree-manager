@@ -301,9 +301,57 @@ wtm open colleague/feature
 
 ## Requirements
 
-- Node.js 18+
-- Git 2.5+ (worktree support)
-- GitHub CLI (`gh`) for sweep command
+- **Node.js 18+** - Required
+- **Git 2.5+** - Required (for worktree support)
+- **GitHub CLI (`gh`)** - Optional, but recommended
+
+### GitHub CLI Requirements by Command
+
+| Command | GitHub CLI Required? | Notes |
+|---------|---------------------|-------|
+| `wtm clone` | Optional | Used to check write access; works without it |
+| `wtm new` | No | Works without GitHub |
+| `wtm add` | No | Works without GitHub |
+| `wtm list` | Optional | Shows PR status if gh is available; works without it (shows "No PR" for all) |
+| `wtm open` | No | Works without GitHub |
+| `wtm delete` | No | Works without GitHub |
+| `wtm sweep` | **Required** | Must have gh installed and authenticated |
+| `wtm setup` | No | Works without GitHub |
+
+### Installing GitHub CLI
+
+```bash
+# macOS
+brew install gh
+
+# Ubuntu/Debian
+sudo apt install gh
+
+# Other platforms
+# See https://cli.github.com/
+```
+
+After installing, authenticate with:
+```bash
+gh auth login
+```
+
+## Running from Different Directories
+
+`wtm` is designed to work from various locations:
+
+| Location | Behavior |
+|----------|----------|
+| Inside a worktree (e.g., `project/main`) | Works normally |
+| Inside a feature worktree (e.g., `project/feature-auth`) | Works normally |
+| In the wtm parent directory (e.g., `project/`) | Automatically finds and uses a suitable worktree |
+| Outside any wtm project | Shows helpful error with instructions |
+
+**Note:** `wtm new` requires being on the base branch (main/master). If you run it from the wtm parent directory, it will automatically use a worktree that has the base branch checked out.
+
+### Branch/Folder Mismatch Warning
+
+If you check out a different branch in a worktree folder (e.g., checking out `develop` in the `feature-auth` folder), wtm will show a warning but continue to work. This helps catch accidental branch switches that might cause confusion.
 
 ## License
 
