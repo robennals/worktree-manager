@@ -39,3 +39,13 @@ This is a CLI tool (`wtm`) for managing git worktrees. It's built with TypeScrip
 ### Module System
 
 Uses ES modules (`"type": "module"` in package.json). All imports must use `.js` extensions even when importing `.ts` files.
+
+## Before Completing a PR
+
+Always ensure the following pass before considering work complete:
+
+```bash
+pnpm run typecheck    # Must pass with no errors
+pnpm test             # All tests must pass
+pnpm run build        # Build must succeed
+```
