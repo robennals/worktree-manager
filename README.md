@@ -18,11 +18,8 @@ yarn global add wtm-cli
 ## Quick Start
 
 ```bash
-# Create a new feature branch and worktree
+# Create a new feature branch and worktree (opens in editor automatically)
 wtm new feature/my-feature
-
-# Open it in your editor
-wtm open feature/my-feature
 
 # List all worktrees
 wtm list
@@ -35,18 +32,22 @@ wtm sweep
 
 ### `wtm new <branch>`
 
-Create a new branch and worktree from the base branch.
+Create a new branch and worktree from the base branch. By default, opens the new worktree in your configured editor.
 
 ```bash
-wtm new feature/auth          # Create from main branch
+wtm new feature/auth          # Create from main and open in editor
 wtm new bugfix/123 -b develop # Create from develop branch
 wtm new feature/ui --copy-env # Copy .env files after creation
+wtm new feature/x --no-open   # Create without opening editor
+wtm new feature/y -e code     # Create and open in VS Code
 ```
 
 **Options:**
 - `-b, --base <branch>` - Base branch to create from (default: main)
 - `--no-fetch` - Skip fetching the base branch before creating
 - `--copy-env` - Copy .env file to worktree subdirectories
+- `--no-open` - Don't open the worktree in an editor after creation
+- `-e, --editor <name>` - Editor to use when opening
 
 ### `wtm add <branch>`
 
@@ -126,16 +127,34 @@ wtm sweep --force    # Force removal of all merged worktrees
 
 - **Environment Files**: The `--copy-env` flag copies your `.env` file to common subdirectories (`server`, `client`, etc.) in the new worktree.
 
+## Configuration
+
+Configure `wtm` by creating a `.wtmrc.json` file in the worktrees parent directory (the folder containing all your worktrees) or in your home directory (`~/.wtmrc.json`).
+
+```json
+{
+  "editor": "code",
+  "autoOpenOnNew": true
+}
+```
+
+**Options:**
+- `editor` - The editor command to use (e.g., `"code"`, `"cursor"`, `"vim"`)
+- `autoOpenOnNew` - Whether to automatically open worktrees in the editor after `wtm new` (default: `true`)
+
+**Config file locations (in order of precedence):**
+1. Worktrees parent directory (e.g., `/projects/.wtmrc.json` if your worktrees are at `/projects/main`, `/projects/feature-x`, etc.)
+2. Home directory (`~/.wtmrc.json`)
+
+If no editor is configured, `wtm` will show a warning and fall back to the `EDITOR` environment variable, then try `cursor`, `code`, and `vim` in order.
+
 ## Common Workflows
 
 ### Starting a New Feature
 
 ```bash
-# Create branch and worktree from main
+# Create branch and worktree from main (opens in editor automatically)
 wtm new feature/my-feature
-
-# Open in your editor
-wtm open feature/my-feature
 
 # ... do your work ...
 ```

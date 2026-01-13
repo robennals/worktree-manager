@@ -1,6 +1,8 @@
 import chalk from "chalk";
 import { isInsideGitRepo, localBranchExists, worktreePathExists, addWorktreeTracking, getWorktreePath, fetchRemote, getDefaultBranch, } from "../utils/git.js";
 import { copyEnvToWorktree } from "../utils/env.js";
+import { openInEditor } from "../utils/editor.js";
+import { isAutoOpenEnabled } from "../utils/config.js";
 /**
  * Create a new branch and worktree
  */
@@ -37,6 +39,17 @@ export async function newBranch(branch, options = {}) {
     console.log(chalk.green(`Created new branch '${branch}' and worktree at ${wtPath}`));
     if (options.copyEnv) {
         copyEnvToWorktree(wtPath);
+    }
+    // Auto-open in editor unless disabled
+    // Priority: CLI flag > config file > default (true)
+    const shouldOpen = options.open !== undefined ? options.open : isAutoOpenEnabled();
+    if (shouldOpen) {
+        console.log(chalk.blue(`Opening worktree in editor...`));
+        const opened = await openInEditor(wtPath, options.editor);
+        if (!opened) {
+            console.error(chalk.red("Error: Could not open editor. Make sure your configured editor is available."));
+            process.exit(1);
+        }
     }
 }
 //# sourceMappingURL=new.js.map

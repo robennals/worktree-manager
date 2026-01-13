@@ -36,13 +36,17 @@ program
   .option("-b, --base <branch>", "Base branch to create from (default: main)")
   .option("--no-fetch", "Skip fetching the base branch before creating")
   .option("--copy-env", "Copy .env file to worktree subdirectories")
+  .option("--no-open", "Don't open the worktree in an editor after creation")
+  .option("-e, --editor <name>", "Editor to use when opening")
   .addHelpText(
     "after",
     `
 Examples:
-  $ wtm new feature/auth          # Create from main branch
+  $ wtm new feature/auth          # Create from main and open in editor
   $ wtm new bugfix/123 -b develop # Create from develop branch
   $ wtm new feature/ui --copy-env # Copy .env files after creation
+  $ wtm new feature/x --no-open   # Create without opening editor
+  $ wtm new feature/y -e code     # Create and open in VS Code
 `
   )
   .action((branch, options) => {
@@ -50,6 +54,8 @@ Examples:
       base: options.base,
       fetch: options.fetch,
       copyEnv: options.copyEnv,
+      open: options.open,
+      editor: options.editor,
     });
   });
 
@@ -144,8 +150,7 @@ program.addHelpText(
 ${chalk.bold("Common Workflows:")}
 
   Start working on a new feature:
-    $ wtm new feature/my-feature
-    $ wtm open feature/my-feature
+    $ wtm new feature/my-feature  # Creates branch, worktree, and opens editor
 
   Switch to an existing branch:
     $ wtm add bugfix/123
@@ -160,6 +165,8 @@ ${chalk.bold("Tips:")}
   • Worktrees are created in sibling directories (../branch-name)
   • Branch names with slashes are converted to dashes in folder names
   • Use --copy-env to automatically copy .env files to common subdirectories
+  • Configure your editor in .wtmrc.json: { "editor": "code" }
+  • Set autoOpenOnNew: false in .wtmrc.json to disable auto-open on wtm new
 
 ${chalk.dim("For more info on a command, run: wtm <command> --help")}
 `

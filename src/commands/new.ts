@@ -9,11 +9,15 @@ import {
   getDefaultBranch,
 } from "../utils/git.js";
 import { copyEnvToWorktree } from "../utils/env.js";
+import { openInEditor } from "../utils/editor.js";
+import { isAutoOpenEnabled } from "../utils/config.js";
 
 export interface NewOptions {
   base?: string;
   copyEnv?: boolean;
   fetch?: boolean;
+  open?: boolean;
+  editor?: string;
 }
 
 /**
@@ -68,5 +72,22 @@ export async function newBranch(
 
   if (options.copyEnv) {
     copyEnvToWorktree(wtPath);
+  }
+
+  // Auto-open in editor unless disabled
+  // Priority: CLI flag > config file > default (true)
+  const shouldOpen = options.open !== undefined ? options.open : isAutoOpenEnabled();
+
+  if (shouldOpen) {
+    console.log(chalk.blue(`Opening worktree in editor...`));
+    const opened = await openInEditor(wtPath, options.editor);
+    if (!opened) {
+      console.error(
+        chalk.red(
+          "Error: Could not open editor. Make sure your configured editor is available."
+        )
+      );
+      process.exit(1);
+    }
   }
 }
