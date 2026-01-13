@@ -5,6 +5,8 @@ import {
   execGit,
   isInsideGitRepo,
   getRepoRoot,
+  getCurrentBranch,
+  pullFastForward,
   localBranchExists,
   remoteBranchExists,
   listWorktrees,
@@ -127,6 +129,77 @@ describe("git utilities", () => {
       });
 
       expect(getRepoRoot()).toBeNull();
+    });
+  });
+
+  describe("getCurrentBranch", () => {
+    it("should return current branch name", () => {
+      vi.mocked(childProcess.execSync).mockReturnValue("main\n");
+
+      expect(getCurrentBranch()).toBe("main");
+    });
+
+    it("should return branch name with slashes", () => {
+      vi.mocked(childProcess.execSync).mockReturnValue("feature/test\n");
+
+      expect(getCurrentBranch()).toBe("feature/test");
+    });
+
+    it("should return null when not inside a repo", () => {
+      vi.mocked(childProcess.execSync).mockImplementation(() => {
+        throw new Error("fatal: not a git repository");
+      });
+
+      expect(getCurrentBranch()).toBeNull();
+    });
+
+    it("should pass cwd option", () => {
+      vi.mocked(childProcess.execSync).mockReturnValue("main\n");
+
+      getCurrentBranch("/custom/path");
+
+      expect(childProcess.execSync).toHaveBeenCalledWith(
+        "git rev-parse --abbrev-ref HEAD",
+        expect.objectContaining({ cwd: "/custom/path" })
+      );
+    });
+  });
+
+  describe("pullFastForward", () => {
+    it("should return success when pull succeeds", () => {
+      vi.mocked(childProcess.execSync).mockReturnValue("Already up to date.\n");
+
+      const result = pullFastForward();
+
+      expect(result.success).toBe(true);
+      expect(childProcess.execSync).toHaveBeenCalledWith(
+        "git pull --ff-only",
+        expect.any(Object)
+      );
+    });
+
+    it("should return failure when pull fails", () => {
+      const error = new Error("Cannot fast-forward") as Error & { stderr: Buffer };
+      error.stderr = Buffer.from("fatal: Not possible to fast-forward");
+      vi.mocked(childProcess.execSync).mockImplementation(() => {
+        throw error;
+      });
+
+      const result = pullFastForward();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Not possible to fast-forward");
+    });
+
+    it("should pass cwd option", () => {
+      vi.mocked(childProcess.execSync).mockReturnValue("");
+
+      pullFastForward("/custom/path");
+
+      expect(childProcess.execSync).toHaveBeenCalledWith(
+        "git pull --ff-only",
+        expect.objectContaining({ cwd: "/custom/path" })
+      );
     });
   });
 

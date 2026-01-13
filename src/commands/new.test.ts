@@ -25,8 +25,9 @@ describe("new command", () => {
     vi.mocked(git.localBranchExists).mockReturnValue(false);
     vi.mocked(git.worktreePathExists).mockReturnValue(false);
     vi.mocked(git.getDefaultBranch).mockReturnValue("main");
+    vi.mocked(git.getCurrentBranch).mockReturnValue("main");
     vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-test");
-    vi.mocked(git.fetchRemote).mockReturnValue({ success: true, output: "" });
+    vi.mocked(git.pullFastForward).mockReturnValue({ success: true, output: "" });
     vi.mocked(git.addWorktreeTracking).mockResolvedValue({ success: true, output: "" });
     vi.mocked(initScript.runInitScriptWithWarning).mockReturnValue(undefined);
     vi.mocked(config.isAutoOpenEnabled).mockReturnValue(true);
@@ -65,42 +66,55 @@ describe("new command", () => {
       expect(process.exit).toHaveBeenCalledWith(1);
       expect(console.error).toHaveBeenCalled();
     });
+
+    it("should exit with error when not on base branch", async () => {
+      vi.mocked(git.getCurrentBranch).mockReturnValue("feature/other");
+      vi.mocked(git.getDefaultBranch).mockReturnValue("main");
+
+      await newBranch("feature/test");
+
+      expect(process.exit).toHaveBeenCalledWith(1);
+      expect(console.error).toHaveBeenCalled();
+    });
   });
 
   describe("branch creation", () => {
     it("should use default branch when no base specified", async () => {
       vi.mocked(git.getDefaultBranch).mockReturnValue("main");
+      vi.mocked(git.getCurrentBranch).mockReturnValue("main");
 
       await newBranch("feature/test");
 
-      expect(git.fetchRemote).toHaveBeenCalledWith("origin", "main");
+      expect(git.pullFastForward).toHaveBeenCalled();
       expect(git.addWorktreeTracking).toHaveBeenCalledWith(
         "feature/test",
-        "origin/main"
+        "main"
       );
     });
 
     it("should use specified base branch", async () => {
+      vi.mocked(git.getCurrentBranch).mockReturnValue("develop");
+
       await newBranch("feature/test", { base: "develop" });
 
-      expect(git.fetchRemote).toHaveBeenCalledWith("origin", "develop");
+      expect(git.pullFastForward).toHaveBeenCalled();
       expect(git.addWorktreeTracking).toHaveBeenCalledWith(
         "feature/test",
-        "origin/develop"
+        "develop"
       );
     });
 
-    it("should warn but continue when fetch fails", async () => {
-      vi.mocked(git.fetchRemote).mockReturnValue({
+    it("should exit with error when pull fails", async () => {
+      vi.mocked(git.pullFastForward).mockReturnValue({
         success: false,
         output: "",
-        error: "fetch failed",
+        error: "pull failed",
       });
 
       await newBranch("feature/test");
 
-      expect(console.warn).toHaveBeenCalled();
-      expect(git.addWorktreeTracking).toHaveBeenCalled();
+      expect(process.exit).toHaveBeenCalledWith(1);
+      expect(console.error).toHaveBeenCalled();
     });
 
     it("should exit with error when worktree creation fails", async () => {

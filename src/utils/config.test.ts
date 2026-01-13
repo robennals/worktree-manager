@@ -2,11 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as childProcess from "node:child_process";
 import * as os from "node:os";
-import { loadConfig, getConfiguredEditor, isAutoOpenEnabled } from "./config.js";
+
+// Mock os.homedir BEFORE importing config module
+vi.mock("node:os", () => ({
+  homedir: vi.fn(() => "/home/user"),
+}));
 
 vi.mock("node:fs");
 vi.mock("node:child_process");
-vi.mock("node:os");
+
+// Import after mocks are set up
+const { loadConfig, getConfiguredEditor, isAutoOpenEnabled, hasHomeConfig, getHomeConfigPath } = await import("./config.js");
 
 describe("config utilities", () => {
   beforeEach(() => {
@@ -16,6 +22,26 @@ describe("config utilities", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe("hasHomeConfig", () => {
+    it("should return true when home config exists", () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+
+      expect(hasHomeConfig()).toBe(true);
+    });
+
+    it("should return false when home config does not exist", () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+
+      expect(hasHomeConfig()).toBe(false);
+    });
+  });
+
+  describe("getHomeConfigPath", () => {
+    it("should return path to home config", () => {
+      expect(getHomeConfigPath()).toBe("/home/user/.wtmrc.json");
+    });
   });
 
   describe("loadConfig", () => {
