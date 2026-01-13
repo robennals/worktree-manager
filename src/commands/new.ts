@@ -8,13 +8,12 @@ import {
   fetchRemote,
   getDefaultBranch,
 } from "../utils/git.js";
-import { copyEnvToWorktree } from "../utils/env.js";
+import { runInitScriptWithWarning } from "../utils/init-script.js";
 import { openInEditor } from "../utils/editor.js";
 import { isAutoOpenEnabled } from "../utils/config.js";
 
 export interface NewOptions {
   base?: string;
-  copyEnv?: boolean;
   fetch?: boolean;
   open?: boolean;
   editor?: string;
@@ -70,9 +69,8 @@ export async function newBranch(
 
   console.log(chalk.green(`Created new branch '${branch}' and worktree at ${wtPath}`));
 
-  if (options.copyEnv) {
-    copyEnvToWorktree(wtPath);
-  }
+  // Run init script if it exists, otherwise show a warning
+  runInitScriptWithWarning(wtPath);
 
   // Auto-open in editor unless disabled
   // Priority: CLI flag > config file > default (true)
