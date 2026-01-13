@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { add, newBranch, list, open, del, sweep } from "./commands/index.js";
+import { add, newBranch, list, open, del, sweep, clone } from "./commands/index.js";
 
 const program = new Command();
 
@@ -172,11 +172,40 @@ Protected branches (main, master) are never removed.
     sweep({ dryRun: options.dryRun, force: options.force });
   });
 
+// Clone command - clone a repo and set up wtm structure
+program
+  .command("clone <repo-url>")
+  .description("Clone a repository and set up wtm folder structure")
+  .option("-n, --name <name>", "Custom name for the project directory")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ wtm clone https://github.com/user/repo.git
+  $ wtm clone git@github.com:user/repo.git
+  $ wtm clone https://github.com/user/repo.git -n my-project
+
+This creates a folder structure optimized for worktree management:
+
+  repo/
+  └── main/     # The cloned repository
+
+You can then use 'wtm new' to create feature branches as sibling directories.
+`
+  )
+  .action((repoUrl, options) => {
+    clone(repoUrl, { name: options.name });
+  });
+
 // Add helpful examples to the main help
 program.addHelpText(
   "after",
   `
 ${chalk.bold("Common Workflows:")}
+
+  Clone a new repository:
+    $ wtm clone https://github.com/user/repo.git
+    $ cd repo/main
 
   Start working on a new feature:
     $ wtm new feature/my-feature  # Creates branch, worktree, and opens editor

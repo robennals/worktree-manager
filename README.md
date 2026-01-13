@@ -18,6 +18,10 @@ yarn global add wtm-cli
 ## Quick Start
 
 ```bash
+# Clone a repository with wtm folder structure
+wtm clone https://github.com/user/repo.git
+cd repo/main
+
 # Create a new feature branch and worktree (opens in editor automatically)
 wtm new feature/my-feature
 
@@ -29,6 +33,27 @@ wtm sweep
 ```
 
 ## Commands
+
+### `wtm clone <repo-url>`
+
+Clone a repository and set up the wtm folder structure. This creates a parent directory containing the cloned repo in a `main` subdirectory, ready for worktree management.
+
+```bash
+wtm clone https://github.com/user/repo.git
+wtm clone git@github.com:user/repo.git
+wtm clone https://github.com/user/repo.git -n my-project  # Custom directory name
+```
+
+**Options:**
+- `-n, --name <name>` - Custom name for the project directory (defaults to repo name)
+
+This creates:
+```
+repo/
+└── main/     # The cloned repository
+```
+
+After cloning, `cd` into `main/` and use `wtm new` to create feature branches as sibling directories.
 
 ### `wtm new <branch>`
 
