@@ -97,8 +97,8 @@ describe("list command", () => {
       // New format shows names (folder names) not full paths
       expect(logCalls).toContain("main");
       expect(logCalls).toContain("feature");
-      // Shows status
-      expect(logCalls).toContain("No PR");
+      // Shows status (Empty = no commits on branch)
+      expect(logCalls).toContain("Empty");
       expect(logCalls).toContain("2 worktree");
     });
 
@@ -181,14 +181,14 @@ describe("list command", () => {
           name: "main",
           path: "/projects/main",
           branch: "main",
-          status: "No PR",
+          status: "Empty",
           prNumber: null,
         },
         {
           name: "feature",
           path: "/projects/feature",
           branch: "feature/test",
-          status: "No PR",
+          status: "Empty",
           prNumber: null,
         },
       ];
@@ -487,6 +487,56 @@ describe("list command", () => {
       expect(cache.updateCachedPRNumbers).toHaveBeenCalledWith(
         new Map([["new-feature", 456]])
       );
+    });
+
+    it("should show Changes status for branches with commits but no PR", () => {
+      vi.mocked(git.isGitHubRepo).mockReturnValue(true);
+      vi.mocked(github.isGhCliAvailable).mockReturnValue(true);
+      vi.mocked(git.getDefaultBranch).mockReturnValue("main");
+      vi.mocked(cache.getCachedPRNumbers).mockReturnValue(new Map());
+      vi.mocked(github.findPRForBranch).mockReturnValue(null);
+      vi.mocked(github.batchGetPRStatuses).mockReturnValue(new Map());
+      // Branch has commits not in main
+      vi.mocked(git.hasCommitsNotInBranch).mockReturnValue(true);
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        {
+          path: "/projects/feature",
+          head: "abc123",
+          branch: "feature",
+          bare: false,
+          detached: false,
+        },
+      ]);
+
+      list();
+
+      const logCalls = vi.mocked(console.log).mock.calls.flat().join(" ");
+      expect(logCalls).toContain("Changes");
+    });
+
+    it("should show Empty status for branches with no commits and no PR", () => {
+      vi.mocked(git.isGitHubRepo).mockReturnValue(true);
+      vi.mocked(github.isGhCliAvailable).mockReturnValue(true);
+      vi.mocked(git.getDefaultBranch).mockReturnValue("main");
+      vi.mocked(cache.getCachedPRNumbers).mockReturnValue(new Map());
+      vi.mocked(github.findPRForBranch).mockReturnValue(null);
+      vi.mocked(github.batchGetPRStatuses).mockReturnValue(new Map());
+      // Branch has no commits not in main
+      vi.mocked(git.hasCommitsNotInBranch).mockReturnValue(false);
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        {
+          path: "/projects/feature",
+          head: "abc123",
+          branch: "feature",
+          bare: false,
+          detached: false,
+        },
+      ]);
+
+      list();
+
+      const logCalls = vi.mocked(console.log).mock.calls.flat().join(" ");
+      expect(logCalls).toContain("Empty");
     });
   });
 });
