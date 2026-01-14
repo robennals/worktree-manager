@@ -92,4 +92,12 @@ export function isAutoOpenEnabled() {
     const config = loadConfig();
     return config.autoOpenOnNew !== false;
 }
+/**
+ * Get the configured main folder name
+ * This is used to identify which folder contains the main branch worktree
+ */
+export function getConfiguredMainFolder() {
+    const config = loadConfig();
+    return config.mainFolder;
+}
 //# sourceMappingURL=config.js.map

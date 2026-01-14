@@ -1,6 +1,7 @@
 import { execSync, spawn } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { getConfiguredMainFolder } from "./config.js";
 
 export interface WorktreeInfo {
   path: string;
@@ -309,6 +310,24 @@ export function isGitHubRepo(cwd?: string): boolean {
   return url !== null && url.includes("github.com");
 }
 
+/**
+ * Extract the repository name from the remote URL
+ * Works with both HTTPS and SSH URLs:
+ * - https://github.com/user/repo-name.git -> repo-name
+ * - git@github.com:user/repo-name.git -> repo-name
+ */
+export function getRepoName(cwd?: string): string | null {
+  const url = getRemoteUrl("origin", cwd);
+  if (!url) return null;
+
+  // Remove .git suffix if present
+  const cleanUrl = url.replace(/\.git$/, "");
+
+  // Extract the last path component (repo name)
+  const match = cleanUrl.match(/[/:]([^/:]+)$/);
+  return match ? match[1] : null;
+}
+
 
 /**
  * Check if a commit is an ancestor of another commit.
@@ -414,10 +433,19 @@ export function isWtmParentDirectory(dirPath: string): boolean {
 
 /**
  * Find a git repository in the wtm parent directory
- * Prefers 'main' directory, then any worktree on the default branch, then any git repo
+ * Prefers configured main folder, then 'main' directory, then any worktree on the default branch, then any git repo
  */
 export function findRepoInWtmParent(parentPath: string): string | null {
-  // First check if 'main' exists and is a git repo
+  // First check if configured main folder exists and is a git repo
+  const configuredMainFolder = getConfiguredMainFolder();
+  if (configuredMainFolder) {
+    const configuredPath = path.join(parentPath, configuredMainFolder);
+    if (existsSync(configuredPath) && isInsideGitRepo(configuredPath)) {
+      return configuredPath;
+    }
+  }
+
+  // Then check if 'main' exists and is a git repo
   const mainPath = path.join(parentPath, "main");
   if (existsSync(mainPath) && isInsideGitRepo(mainPath)) {
     return mainPath;
@@ -515,8 +543,11 @@ export function getContext(): ContextInfo {
     const expectedBranch = folderName.replace(/-/g, "/");
     const expectedFolder = branchToFolder(currentBranch);
 
-    // Don't warn for 'main' or 'master' folders since they're expected to be the main branch
-    if (folderName !== "main" && folderName !== "master") {
+    // Don't warn for 'main', 'master', repo name, or configured main folder since they're expected to be the main branch
+    const configuredMainFolder = getConfiguredMainFolder();
+    const repoName = getRepoName(repoRoot);
+    const isMainFolder = folderName === "main" || folderName === "master" || folderName === configuredMainFolder || folderName === repoName;
+    if (!isMainFolder) {
       // Check if folder name doesn't match branch (accounting for slash->dash conversion)
       if (folderName !== expectedFolder && expectedBranch !== currentBranch) {
         branchMismatchWarning =

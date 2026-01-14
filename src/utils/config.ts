@@ -6,6 +6,7 @@ import { execSync } from "node:child_process";
 export interface WtmConfig {
   editor?: string;
   autoOpenOnNew?: boolean;
+  mainFolder?: string;
 }
 
 const CONFIG_FILENAME = ".wtmrc.json";
@@ -103,4 +104,13 @@ export function getConfiguredEditor(): string | undefined {
 export function isAutoOpenEnabled(): boolean {
   const config = loadConfig();
   return config.autoOpenOnNew !== false;
+}
+
+/**
+ * Get the configured main folder name
+ * This is used to identify which folder contains the main branch worktree
+ */
+export function getConfiguredMainFolder(): string | undefined {
+  const config = loadConfig();
+  return config.mainFolder;
 }
