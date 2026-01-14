@@ -389,6 +389,25 @@ export function hasNonMergeCommitsAfter(
 }
 
 /**
+ * Check if a branch has any commits that are not in the default branch.
+ * Returns true if the branch has unique commits (i.e., work has been done).
+ */
+export function hasCommitsNotInBranch(
+  branch: string,
+  targetBranch: string,
+  cwd?: string
+): boolean {
+  // Count commits in branch that are not in target branch
+  const result = execGit(
+    ["rev-list", "--count", `refs/heads/${targetBranch}..refs/heads/${branch}`],
+    cwd
+  );
+  if (!result.success) return false;
+  const count = parseInt(result.output, 10);
+  return count > 0;
+}
+
+/**
  * Get the default branch name (main or master)
  */
 export function getDefaultBranch(cwd?: string): string {

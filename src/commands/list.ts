@@ -9,6 +9,7 @@ import {
   getBranchHeadSha,
   commitExists,
   hasNonMergeCommitsAfter,
+  hasCommitsNotInBranch,
 } from "../utils/git.js";
 import {
   isGhCliAvailable,
@@ -25,11 +26,12 @@ export interface ListOptions {
 }
 
 export type WorktreeStatus =
-  | "No PR"
   | "Open"
   | "Merged"
   | "Closed"
   | "Changes since Merge"
+  | "Changes"
+  | "Empty"
   | "Main"
   | "Uncommitted Changes";
 
@@ -39,6 +41,17 @@ export interface WorktreeListItem {
   branch: string | null;
   status: WorktreeStatus | null;
   prNumber: number | null;
+}
+
+/**
+ * Determine status for a branch without a PR
+ * Returns "Empty" if no commits, "Changes" if there are commits
+ */
+function getNoPRStatus(branch: string, defaultBranch: string): WorktreeStatus {
+  if (hasCommitsNotInBranch(branch, defaultBranch)) {
+    return "Changes";
+  }
+  return "Empty";
 }
 
 /**
@@ -78,9 +91,9 @@ function getWorktreeStatuses(
   const isGitHub = isGitHubRepo(cwd);
 
   if (!isGitHub || !ghAvailable) {
-    // No GitHub access - all are "No PR"
+    // No GitHub access - check if branches have commits
     for (const branch of featureBranches) {
-      result.set(branch, { status: "No PR", prNumber: null });
+      result.set(branch, { status: getNoPRStatus(branch, defaultBranch), prNumber: null });
     }
     return result;
   }
@@ -141,7 +154,7 @@ function getWorktreeStatuses(
     }
 
     if (!prNumber || !prStatus) {
-      result.set(branch, { status: "No PR", prNumber: null });
+      result.set(branch, { status: getNoPRStatus(branch, defaultBranch), prNumber: null });
       continue;
     }
 
@@ -209,8 +222,6 @@ function formatStatus(status: WorktreeStatus | null): string {
   if (!status) return chalk.dim("(unknown)");
 
   switch (status) {
-    case "No PR":
-      return chalk.dim("No PR");
     case "Open":
       return chalk.green("Open");
     case "Merged":
@@ -219,6 +230,10 @@ function formatStatus(status: WorktreeStatus | null): string {
       return chalk.red("Closed");
     case "Changes since Merge":
       return chalk.yellow("Changes since Merge");
+    case "Changes":
+      return chalk.magenta("Changes");
+    case "Empty":
+      return chalk.dim("Empty");
     case "Main":
       return chalk.cyan("Main");
     case "Uncommitted Changes":
@@ -273,10 +288,10 @@ export function list(options: ListOptions = {}): void {
     const name = getDisplayName(wt);
     const statusInfo = wt.branch ? statuses.get(wt.branch) : null;
 
-    // Check for uncommitted changes - this overrides "Merged" status
-    // since a worktree with uncommitted changes shouldn't be considered done
+    // Check for uncommitted changes - this overrides statuses that would
+    // otherwise suggest no work is in progress
     let status = statusInfo?.status ?? null;
-    if (status === "Merged" && hasUncommittedChanges(wt.path)) {
+    if ((status === "Merged" || status === "Empty" || status === "Changes") && hasUncommittedChanges(wt.path)) {
       status = "Uncommitted Changes";
     }
 
