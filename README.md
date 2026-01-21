@@ -89,13 +89,15 @@ After creating the worktree, wtm will automatically run your `.wtm-init` script 
 List all worktrees in the repository.
 
 ```bash
-wtm list          # Show formatted worktree list
-wtm ls            # Alias for list
-wtm list --json   # Output as JSON for scripting
+wtm list             # Show formatted worktree list
+wtm ls               # Alias for list
+wtm list --json      # Output as JSON for scripting
+wtm list --archived  # Show archived worktrees
 ```
 
 **Options:**
 - `--json` - Output in JSON format
+- `--archived` - Show archived worktrees instead of active ones
 
 ### `wtm open <branch>`
 
@@ -139,7 +141,30 @@ wtm sweep --force    # Force removal of all merged worktrees
 - `-n, --dry-run` - Show what would be removed without removing
 - `-f, --force` - Force removal even with uncommitted changes
 
-**Note:** Requires GitHub CLI (`gh`) to be installed and authenticated. Protected branches (main, master) are never removed.
+**Note:** Requires GitHub CLI (`gh`) to be installed and authenticated. Protected branches (main, master) are never removed. Archived worktrees are ignored by sweep.
+
+### `wtm archive <branch>`
+
+Archive a worktree by moving it to the `archived/` folder. Archived worktrees don't appear in `wtm list` by default and are ignored by `wtm sweep`.
+
+```bash
+wtm archive feature/old      # Archive a worktree
+wtm archive feature/wip -f   # Force archive with uncommitted changes
+```
+
+**Options:**
+- `-f, --force` - Force archive even with uncommitted changes
+
+Commands like `wtm open` and `wtm delete` still work on archived worktrees.
+
+### `wtm unarchive <branch>`
+
+Restore an archived worktree back to the main worktrees folder.
+
+```bash
+wtm unarchive feature/old    # Restore an archived worktree
+wtm list --archived          # See all archived worktrees
+```
 
 ## How It Works
 
@@ -196,7 +221,10 @@ The `.wtm-init` script should be placed in the parent directory of your worktree
 ├── .env               # Shared .env file (optional)
 ├── myapp/             # Main repository
 ├── feature-auth/      # Worktree
-└── feature-api/       # Worktree
+├── feature-api/       # Worktree
+└── archived/          # Archived worktrees (created by wtm archive)
+    ├── old-feature/
+    └── experiment/
 ```
 
 If no `.wtm-init` script exists, wtm will display a reminder suggesting you create one.

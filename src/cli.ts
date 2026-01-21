@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import chalk from "chalk";
-import { add, newBranch, list, open, del, sweep, clone, setup } from "./commands/index.js";
+import { add, newBranch, list, open, del, sweep, clone, setup, archive, unarchive } from "./commands/index.js";
 
 const program = new Command();
 
@@ -93,17 +93,19 @@ program
   .alias("ls")
   .description("List all worktrees in the repository")
   .option("--json", "Output in JSON format")
+  .option("--archived", "Show archived worktrees instead of active ones")
   .addHelpText(
     "after",
     `
 Examples:
-  $ wtm list          # Show formatted worktree list
-  $ wtm ls            # Alias for list
-  $ wtm list --json   # Output as JSON for scripting
+  $ wtm list             # Show formatted worktree list
+  $ wtm ls               # Alias for list
+  $ wtm list --json      # Output as JSON for scripting
+  $ wtm list --archived  # Show archived worktrees
 `
   )
   .action((options) => {
-    list({ json: options.json });
+    list({ json: options.json, archived: options.archived });
   });
 
 // Open command - open worktree in editor
@@ -220,6 +222,47 @@ ${chalk.dim("The config file can also be edited manually.")}
     setup();
   });
 
+// Archive command - move worktree to archive folder
+program
+  .command("archive <branch>")
+  .description("Archive a worktree by moving it to the archive folder")
+  .option("-f, --force", "Force archive even with uncommitted changes")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ wtm archive feature/old      # Archive a worktree
+  $ wtm archive feature/wip -f   # Force archive with uncommitted changes
+
+Archived worktrees are moved to an 'archived/' folder alongside your worktrees.
+They don't appear in 'wtm list' by default (use --archived to see them).
+The sweep command also ignores archived worktrees.
+
+Use 'wtm unarchive <branch>' to restore an archived worktree.
+Commands like 'wtm open' and 'wtm delete' still work on archived worktrees.
+`
+  )
+  .action((branch, options) => {
+    archive(branch, { force: options.force });
+  });
+
+// Unarchive command - restore worktree from archive folder
+program
+  .command("unarchive <branch>")
+  .description("Restore an archived worktree")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ wtm unarchive feature/old    # Restore an archived worktree
+
+Use 'wtm list --archived' to see archived worktrees.
+`
+  )
+  .action((branch) => {
+    unarchive(branch);
+  });
+
 // Add helpful examples to the main help
 program.addHelpText(
   "after",
@@ -249,6 +292,7 @@ ${chalk.bold("Tips:")}
     (see 'wtm new --help' for details)
   • Configure your editor in .wtmrc.json: { "editor": "code" }
   • Set autoOpenOnNew: false in .wtmrc.json to disable auto-open on wtm new
+  • Use 'wtm archive' to move worktrees out of the way without deleting them
 
 ${chalk.dim("For more info on a command, run: wtm <command> --help")}
 `

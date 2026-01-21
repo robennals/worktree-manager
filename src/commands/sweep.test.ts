@@ -37,6 +37,7 @@ describe("sweep command", () => {
     vi.mocked(git.listWorktrees).mockReturnValue([]);
     vi.mocked(git.removeWorktree).mockReturnValue({ success: true, output: "" });
     vi.mocked(git.deleteBranch).mockReturnValue({ success: true, output: "" });
+    vi.mocked(git.listArchivedWorktrees).mockReturnValue([]);
   });
 
   afterEach(() => {

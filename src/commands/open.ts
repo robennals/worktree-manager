@@ -7,6 +7,7 @@ import {
   addWorktreeTracking,
   getWorktreePath,
   getContext,
+  getArchivedWorktreePath,
 } from "../utils/git.js";
 import { openInEditor } from "../utils/editor.js";
 import { runInitScriptWithWarning } from "../utils/init-script.js";
@@ -45,11 +46,20 @@ export async function open(
   }
 
   const wtPath = getWorktreePath(branch, cwd);
+  const archivedPath = getArchivedWorktreePath(branch, cwd);
 
-  // If worktree already exists, just open it
+  // If worktree already exists (either in main folder or archived), just open it
+  let pathToOpen: string | null = null;
   if (existsSync(wtPath)) {
-    console.log(chalk.blue(`Opening existing worktree at ${wtPath}`));
-    const opened = await openInEditor(wtPath, options.editor);
+    pathToOpen = wtPath;
+  } else if (existsSync(archivedPath)) {
+    pathToOpen = archivedPath;
+    console.log(chalk.yellow(`Note: This worktree is archived.`));
+  }
+
+  if (pathToOpen) {
+    console.log(chalk.blue(`Opening existing worktree at ${pathToOpen}`));
+    const opened = await openInEditor(pathToOpen, options.editor);
     if (!opened) {
       console.error(
         chalk.red(

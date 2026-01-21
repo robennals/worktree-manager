@@ -1,7 +1,10 @@
 import { execSync, spawn } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, mkdirSync, renameSync } from "node:fs";
 import path from "node:path";
 import { getConfiguredMainFolder } from "./config.js";
+
+/** Default name for the archive folder */
+export const ARCHIVE_FOLDER = "archived";
 
 export interface WorktreeInfo {
   path: string;
@@ -606,4 +609,136 @@ export function ensureGitContext(): { repoPath: string; warning: string | null }
 
   // Not in a usable location
   return { repoPath: "", warning: null };
+}
+
+/**
+ * Get the path to the archive folder for worktrees
+ */
+export function getArchivePath(cwd?: string): string {
+  const repoRoot = getRepoRoot(cwd);
+  if (!repoRoot) {
+    throw new Error("Not inside a git repository");
+  }
+  return path.resolve(repoRoot, "..", ARCHIVE_FOLDER);
+}
+
+/**
+ * Get the path where a worktree would be in the archive
+ */
+export function getArchivedWorktreePath(branch: string, cwd?: string): string {
+  const folder = branchToFolder(branch);
+  return path.resolve(getArchivePath(cwd), folder);
+}
+
+/**
+ * Check if a worktree is archived (exists in the archive folder)
+ */
+export function isWorktreeArchived(branch: string, cwd?: string): boolean {
+  const archivedPath = getArchivedWorktreePath(branch, cwd);
+  return existsSync(archivedPath);
+}
+
+/**
+ * Archive a worktree by moving it to the archive folder.
+ * The worktree must exist and not already be archived.
+ * Returns the new path of the archived worktree.
+ */
+export function archiveWorktree(branch: string, cwd?: string): { success: boolean; newPath?: string; error?: string } {
+  const worktree = findWorktreeByBranch(branch, cwd);
+  if (!worktree) {
+    return { success: false, error: `No worktree found for branch '${branch}'` };
+  }
+
+  const archivePath = getArchivePath(cwd);
+  const folder = branchToFolder(branch);
+  const newPath = path.join(archivePath, folder);
+
+  // Create archive folder if it doesn't exist
+  if (!existsSync(archivePath)) {
+    try {
+      mkdirSync(archivePath, { recursive: true });
+    } catch (err) {
+      return { success: false, error: `Failed to create archive folder: ${err}` };
+    }
+  }
+
+  // Check if already archived
+  if (existsSync(newPath)) {
+    return { success: false, error: `Worktree already exists in archive at '${newPath}'` };
+  }
+
+  // Move the worktree folder
+  try {
+    renameSync(worktree.path, newPath);
+  } catch (err) {
+    return { success: false, error: `Failed to move worktree to archive: ${err}` };
+  }
+
+  // Update git worktree to use the new path
+  // First remove the old worktree reference, then re-add at the new location
+  execGit(["worktree", "remove", "--force", worktree.path], cwd);
+  // The remove will fail because the folder is gone, but that's OK - we just need to clean up .git/worktrees
+  // Use repair instead to update the paths
+  execGit(["worktree", "repair", newPath], cwd);
+
+  return { success: true, newPath };
+}
+
+/**
+ * Unarchive a worktree by moving it back from the archive folder.
+ * Returns the new path of the unarchived worktree.
+ */
+export function unarchiveWorktree(branch: string, cwd?: string): { success: boolean; newPath?: string; error?: string } {
+  const folder = branchToFolder(branch);
+  const archivePath = getArchivePath(cwd);
+  const archivedPath = path.join(archivePath, folder);
+
+  if (!existsSync(archivedPath)) {
+    return { success: false, error: `No archived worktree found for branch '${branch}'` };
+  }
+
+  const repoRoot = getRepoRoot(cwd);
+  if (!repoRoot) {
+    return { success: false, error: "Not inside a git repository" };
+  }
+
+  const newPath = path.resolve(repoRoot, "..", folder);
+
+  // Check if there's already a worktree at the destination
+  if (existsSync(newPath)) {
+    return { success: false, error: `A folder already exists at '${newPath}'` };
+  }
+
+  // Move the worktree folder back
+  try {
+    renameSync(archivedPath, newPath);
+  } catch (err) {
+    return { success: false, error: `Failed to move worktree from archive: ${err}` };
+  }
+
+  // Update git worktree to use the new path
+  execGit(["worktree", "repair", newPath], cwd);
+
+  return { success: true, newPath };
+}
+
+/**
+ * List all archived worktrees (folders in the archive directory)
+ * Returns folder names that appear to be archived worktrees
+ */
+export function listArchivedWorktrees(cwd?: string): string[] {
+  const archivePath = getArchivePath(cwd);
+
+  if (!existsSync(archivePath)) {
+    return [];
+  }
+
+  try {
+    const entries = readdirSync(archivePath, { withFileTypes: true });
+    return entries
+      .filter((e: { isDirectory: () => boolean; name: string }) => e.isDirectory() && !e.name.startsWith("."))
+      .map((e: { name: string }) => e.name);
+  } catch {
+    return [];
+  }
 }
