@@ -10,6 +10,8 @@ import {
   commitExists,
   hasNonMergeCommitsAfter,
   hasCommitsNotInBranch,
+  listArchivedWorktrees,
+  ARCHIVE_FOLDER,
 } from "../utils/git.js";
 import {
   isGhCliAvailable,
@@ -23,6 +25,7 @@ import {
 
 export interface ListOptions {
   json?: boolean;
+  archived?: boolean;
 }
 
 export type WorktreeStatus =
@@ -273,7 +276,34 @@ export function list(options: ListOptions = {}): void {
     console.log(chalk.yellow(context.branchMismatchWarning) + "\n");
   }
 
-  const worktrees = listWorktrees(context.workableRepoPath ?? undefined);
+  const cwd = context.workableRepoPath ?? undefined;
+
+  // If --archived flag, show archived worktrees instead
+  if (options.archived) {
+    const archivedFolders = listArchivedWorktrees(cwd);
+    if (archivedFolders.length === 0) {
+      console.log(chalk.yellow("No archived worktrees found."));
+      return;
+    }
+
+    if (options.json) {
+      const items = archivedFolders.map((name) => ({ name, archived: true }));
+      console.log(JSON.stringify(items, null, 2));
+      return;
+    }
+
+    console.log(chalk.bold("\nArchived Worktrees:"));
+    console.log(chalk.dim("─".repeat(80)));
+    for (const name of archivedFolders) {
+      console.log(`  ${chalk.cyan(name)}`);
+    }
+    console.log(chalk.dim("─".repeat(80)));
+    console.log(chalk.dim(`Total: ${archivedFolders.length} archived worktree(s)\n`));
+    console.log(chalk.dim("Use 'wtm unarchive <branch>' to restore a worktree.\n"));
+    return;
+  }
+
+  const worktrees = listWorktrees(cwd);
 
   if (worktrees.length === 0) {
     console.log(chalk.yellow("No worktrees found."));
@@ -281,7 +311,7 @@ export function list(options: ListOptions = {}): void {
   }
 
   // Get statuses for all worktrees
-  const statuses = getWorktreeStatuses(worktrees, context.workableRepoPath ?? undefined);
+  const statuses = getWorktreeStatuses(worktrees, cwd);
 
   // Build list items
   const items: WorktreeListItem[] = worktrees.map((wt) => {
@@ -341,4 +371,12 @@ export function list(options: ListOptions = {}): void {
 
   console.log(chalk.dim("─".repeat(80)));
   console.log(chalk.dim(`Total: ${worktrees.length} worktree(s)\n`));
+
+  // Show archived count when not showing archived worktrees
+  if (!options.archived) {
+    const archivedFolders = listArchivedWorktrees(cwd);
+    if (archivedFolders.length > 0) {
+      console.log(chalk.dim(`${archivedFolders.length} archived worktree(s) in '${ARCHIVE_FOLDER}/'. Use --archived to view.\n`));
+    }
+  }
 }

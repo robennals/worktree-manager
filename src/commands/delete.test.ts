@@ -39,6 +39,8 @@ describe("delete command", () => {
     vi.mocked(git.removeWorktree).mockReturnValue({ success: true, output: "" });
     vi.mocked(git.deleteBranch).mockReturnValue({ success: true, output: "" });
     vi.mocked(git.listWorktrees).mockReturnValue([]);
+    vi.mocked(git.listArchivedWorktrees).mockReturnValue([]);
+    vi.mocked(git.getArchivedWorktreePath).mockReturnValue("/projects/archived/feature-test");
   });
 
   afterEach(() => {

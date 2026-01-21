@@ -6,7 +6,11 @@ import {
   deleteBranch,
   listWorktrees,
   getContext,
+  listArchivedWorktrees,
+  getArchivedWorktreePath,
+  ARCHIVE_FOLDER,
 } from "../utils/git.js";
+import { existsSync, rmSync } from "node:fs";
 
 export interface DeleteOptions {
   deleteBranch?: boolean;
@@ -39,7 +43,24 @@ export function del(branch: string, options: DeleteOptions = {}): void {
     console.log(chalk.yellow(context.branchMismatchWarning) + "\n");
   }
 
-  const worktree = findWorktreeByBranch(branch, cwd);
+  let worktree = findWorktreeByBranch(branch, cwd);
+  let isArchived = false;
+
+  // If not found as a regular worktree, check if it's archived
+  if (!worktree) {
+    const archivedPath = getArchivedWorktreePath(branch, cwd);
+    if (existsSync(archivedPath)) {
+      isArchived = true;
+      // Create a synthetic worktree info for the archived worktree
+      worktree = {
+        path: archivedPath,
+        head: "",
+        branch: branch,
+        bare: false,
+        detached: false,
+      };
+    }
+  }
 
   if (!worktree) {
     console.error(
@@ -49,6 +70,13 @@ export function del(branch: string, options: DeleteOptions = {}): void {
     const worktrees = listWorktrees(cwd);
     for (const wt of worktrees) {
       console.log(chalk.dim(`  ${wt.path} [${wt.branch || "detached"}]`));
+    }
+    const archived = listArchivedWorktrees(cwd);
+    if (archived.length > 0) {
+      console.log(chalk.dim(`\nArchived worktrees (in '${ARCHIVE_FOLDER}/'):`));
+      for (const name of archived) {
+        console.log(chalk.dim(`  ${name}`));
+      }
     }
     process.exit(1);
   }
@@ -67,13 +95,25 @@ export function del(branch: string, options: DeleteOptions = {}): void {
   }
 
   // Remove the worktree
-  console.log(chalk.blue(`Removing worktree at ${worktree.path}...`));
-  const removeResult = removeWorktree(worktree.path, options.force, cwd);
-  if (!removeResult.success) {
-    console.error(chalk.red(`Error removing worktree: ${removeResult.error}`));
-    process.exit(1);
+  if (isArchived) {
+    // Archived worktrees are just folders - remove them directly
+    console.log(chalk.blue(`Removing archived worktree at ${worktree.path}...`));
+    try {
+      rmSync(worktree.path, { recursive: true, force: options.force });
+      console.log(chalk.green(`Removed archived worktree: ${worktree.path}`));
+    } catch (err) {
+      console.error(chalk.red(`Error removing archived worktree: ${err}`));
+      process.exit(1);
+    }
+  } else {
+    console.log(chalk.blue(`Removing worktree at ${worktree.path}...`));
+    const removeResult = removeWorktree(worktree.path, options.force, cwd);
+    if (!removeResult.success) {
+      console.error(chalk.red(`Error removing worktree: ${removeResult.error}`));
+      process.exit(1);
+    }
+    console.log(chalk.green(`Removed worktree: ${worktree.path}`));
   }
-  console.log(chalk.green(`Removed worktree: ${worktree.path}`));
 
   // Delete the branch if requested
   if (options.deleteBranch) {

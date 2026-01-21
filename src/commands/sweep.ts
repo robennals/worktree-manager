@@ -7,6 +7,8 @@ import {
   getBranchHeadSha,
   getContext,
   isAncestor,
+  listArchivedWorktrees,
+  ARCHIVE_FOLDER,
 } from "../utils/git.js";
 import { isGhCliAvailable, getMergedPR } from "../utils/github.js";
 
@@ -182,5 +184,11 @@ export async function sweep(options: SweepOptions = {}): Promise<void> {
     console.log(chalk.dim("Run without --dry-run to actually remove them."));
   } else {
     console.log(chalk.green(`Sweep complete. Removed ${sweptCount} worktree(s).`));
+  }
+
+  // Note about archived worktrees (sweep ignores them)
+  const archivedFolders = listArchivedWorktrees(cwd);
+  if (archivedFolders.length > 0) {
+    console.log(chalk.dim(`\nNote: ${archivedFolders.length} archived worktree(s) in '${ARCHIVE_FOLDER}/' were not checked.`));
   }
 }

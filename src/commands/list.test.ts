@@ -34,6 +34,7 @@ describe("list command", () => {
     vi.mocked(git.isGitHubRepo).mockReturnValue(false); // Default to non-GitHub repo
     vi.mocked(github.isGhCliAvailable).mockReturnValue(false);
     vi.mocked(cache.getCachedPRNumbers).mockReturnValue(new Map());
+    vi.mocked(git.listArchivedWorktrees).mockReturnValue([]);
   });
 
   afterEach(() => {

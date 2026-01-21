@@ -6,3 +6,5 @@ export { del } from "./delete.js";
 export { sweep } from "./sweep.js";
 export { clone } from "./clone.js";
 export { setup } from "./setup.js";
+export { archive } from "./archive.js";
+export { unarchive } from "./unarchive.js";
