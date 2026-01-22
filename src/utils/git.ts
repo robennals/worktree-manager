@@ -675,10 +675,7 @@ export function archiveWorktree(branch: string, cwd?: string): { success: boolea
   }
 
   // Update git worktree to use the new path
-  // First remove the old worktree reference, then re-add at the new location
-  execGit(["worktree", "remove", "--force", worktree.path], cwd);
-  // The remove will fail because the folder is gone, but that's OK - we just need to clean up .git/worktrees
-  // Use repair instead to update the paths
+  // git worktree repair updates the worktree's recorded path after it's been moved
   execGit(["worktree", "repair", newPath], cwd);
 
   return { success: true, newPath };
