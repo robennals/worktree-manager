@@ -11,6 +11,7 @@ import {
   hasNonMergeCommitsAfter,
   hasCommitsNotInBranch,
   listArchivedWorktrees,
+  getArchivePath,
   ARCHIVE_FOLDER,
 } from "../utils/git.js";
 import {
@@ -303,7 +304,18 @@ export function list(options: ListOptions = {}): void {
     return;
   }
 
-  const worktrees = listWorktrees(cwd);
+  const allWorktrees = listWorktrees(cwd);
+
+  // Filter out archived worktrees (those in the archive folder)
+  let archivePath: string | null = null;
+  try {
+    archivePath = getArchivePath(cwd);
+  } catch {
+    // Not in a git repo, archivePath stays null
+  }
+  const worktrees = archivePath
+    ? allWorktrees.filter((wt) => !wt.path.startsWith(archivePath + "/"))
+    : allWorktrees;
 
   if (worktrees.length === 0) {
     console.log(chalk.yellow("No worktrees found."));
