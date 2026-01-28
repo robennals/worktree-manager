@@ -29,11 +29,15 @@
     "branch",
     "development"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "Rob Ennals <rob.ennals@gmail.com>",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/robennals/worktree-manager.git"
+  },
+  "homepage": "https://github.com/robennals/worktree-manager",
+  "bugs": {
+    "url": "https://github.com/robennals/worktree-manager/issues"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -45,7 +49,10 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.6",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
     "@vitest/coverage-v8": "^4.0.17",
+    "eslint": "^8.57.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.17"
   }

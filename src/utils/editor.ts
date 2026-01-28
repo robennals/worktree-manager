@@ -22,7 +22,6 @@ export function openInEditor(
 ): Promise<boolean> {
   return new Promise((resolve) => {
     let editors: string[];
-    let showWarning = false;
 
     if (editor) {
       // Explicit editor from command line
@@ -37,7 +36,6 @@ export function openInEditor(
         const envEditor = process.env.EDITOR;
         if (envEditor) {
           editors = [envEditor];
-          showWarning = true;
           console.warn(
             chalk.yellow(
               `Warning: No editor configured in .wtmrc.json. Using EDITOR environment variable: ${envEditor}`
@@ -58,7 +56,6 @@ export function openInEditor(
           }
         } else {
           editors = FALLBACK_EDITORS;
-          showWarning = true;
           console.warn(
             chalk.yellow(
               `Warning: No editor configured. Trying fallback editors: ${FALLBACK_EDITORS.join(", ")}`
