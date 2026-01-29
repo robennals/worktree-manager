@@ -1,5 +1,5 @@
 {
-  "name": "wtm-cli",
+  "name": "@robennals/wtm",
   "version": "1.0.0",
   "description": "A CLI tool for managing git worktrees with ease",
   "type": "module",
@@ -41,6 +41,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "packageManager": "pnpm@10.24.0",
   "dependencies": {
