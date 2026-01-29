@@ -4,11 +4,15 @@ import { open } from "./open.js";
 import * as git from "../utils/git.js";
 import * as editor from "../utils/editor.js";
 import * as initScript from "../utils/init-script.js";
+import * as prompt from "../utils/prompt.js";
+import * as github from "../utils/github.js";
 
 vi.mock("node:fs");
 vi.mock("../utils/git.js");
 vi.mock("../utils/editor.js");
 vi.mock("../utils/init-script.js");
+vi.mock("../utils/prompt.js");
+vi.mock("../utils/github.js");
 
 // Helper to create a mock context
 function mockContext(overrides: Partial<git.ContextInfo> = {}): git.ContextInfo {
@@ -35,8 +39,13 @@ describe("open command", () => {
     // Default mocks
     vi.mocked(git.getContext).mockReturnValue(mockContext());
     vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-test");
+    vi.mocked(git.getArchivedWorktreePath).mockReturnValue("/projects/archived/feature-test");
+    vi.mocked(git.listWorktrees).mockReturnValue([]);
+    vi.mocked(git.listArchivedWorktrees).mockReturnValue([]);
+    vi.mocked(git.branchToFolder).mockImplementation((branch: string) => branch.replace(/\//g, "-"));
     vi.mocked(editor.openInEditor).mockResolvedValue(true);
     vi.mocked(initScript.runInitScriptWithWarning).mockReturnValue(undefined);
+    vi.mocked(prompt.selectFromList).mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -63,6 +72,9 @@ describe("open command", () => {
   describe("existing worktree", () => {
     it("should open existing worktree directly", async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/feature-test", head: "abc123", branch: "feature/test", bare: false, detached: false }
+      ]);
 
       await open("feature/test");
 
@@ -76,6 +88,9 @@ describe("open command", () => {
 
     it("should use specified editor for existing worktree", async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/feature-test", head: "abc123", branch: "feature/test", bare: false, detached: false }
+      ]);
 
       await open("feature/test", { editor: "vim" });
 
@@ -87,6 +102,9 @@ describe("open command", () => {
 
     it("should exit with error when editor fails on existing worktree", async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/feature-test", head: "abc123", branch: "feature/test", bare: false, detached: false }
+      ]);
       vi.mocked(editor.openInEditor).mockResolvedValue(false);
 
       await open("feature/test");
@@ -209,6 +227,122 @@ describe("open command", () => {
         "/projects/feature-test",
         "cursor"
       );
+    });
+  });
+
+  describe("substring matching", () => {
+    it("should match branch by substring and open it", async () => {
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/feature-login", head: "abc123", branch: "feature/login", bare: false, detached: false },
+        { path: "/projects/main", head: "def456", branch: "main", bare: false, detached: false },
+      ]);
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-login");
+
+      await open("login");
+
+      expect(editor.openInEditor).toHaveBeenCalledWith(
+        "/projects/feature-login",
+        undefined
+      );
+    });
+
+    it("should show picker when multiple branches match", async () => {
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/feature-login", head: "abc123", branch: "feature/login", bare: false, detached: false },
+        { path: "/projects/feature-logout", head: "def456", branch: "feature/logout", bare: false, detached: false },
+      ]);
+      vi.mocked(prompt.selectFromList).mockResolvedValue("feature/login");
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-login");
+
+      await open("log");
+
+      expect(prompt.selectFromList).toHaveBeenCalled();
+      expect(editor.openInEditor).toHaveBeenCalledWith(
+        "/projects/feature-login",
+        undefined
+      );
+    });
+  });
+
+  describe("PR number", () => {
+    it("should look up branch from PR number and open it", async () => {
+      vi.mocked(github.getBranchFromPRNumber).mockReturnValue("feature/pr-branch");
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/feature-pr-branch", head: "abc123", branch: "feature/pr-branch", bare: false, detached: false },
+      ]);
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-pr-branch");
+
+      await open("123");
+
+      expect(github.getBranchFromPRNumber).toHaveBeenCalledWith(123);
+      expect(editor.openInEditor).toHaveBeenCalledWith(
+        "/projects/feature-pr-branch",
+        undefined
+      );
+    });
+
+    it("should handle PR number with # prefix", async () => {
+      vi.mocked(github.getBranchFromPRNumber).mockReturnValue("feature/pr-branch");
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/feature-pr-branch", head: "abc123", branch: "feature/pr-branch", bare: false, detached: false },
+      ]);
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(git.getWorktreePath).mockReturnValue("/projects/feature-pr-branch");
+
+      await open("#456");
+
+      expect(github.getBranchFromPRNumber).toHaveBeenCalledWith(456);
+    });
+
+    it("should exit with error when PR not found", async () => {
+      vi.mocked(github.getBranchFromPRNumber).mockReturnValue(null);
+
+      await open("999");
+
+      expect(process.exit).toHaveBeenCalledWith(1);
+      expect(console.error).toHaveBeenCalled();
+    });
+  });
+
+  describe("no branch specified", () => {
+    it("should show picker with all available branches", async () => {
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/main", head: "abc123", branch: "main", bare: false, detached: false },
+        { path: "/projects/feature-x", head: "def456", branch: "feature/x", bare: false, detached: false },
+      ]);
+      vi.mocked(prompt.selectFromList).mockResolvedValue("main");
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      vi.mocked(git.getWorktreePath).mockReturnValue("/projects/main");
+
+      await open();
+
+      expect(prompt.selectFromList).toHaveBeenCalled();
+      const call = vi.mocked(prompt.selectFromList).mock.calls[0];
+      expect(call[1]).toHaveLength(2);
+    });
+
+    it("should exit cleanly when user cancels picker", async () => {
+      vi.mocked(git.listWorktrees).mockReturnValue([
+        { path: "/projects/main", head: "abc123", branch: "main", bare: false, detached: false },
+      ]);
+      vi.mocked(prompt.selectFromList).mockResolvedValue(null);
+
+      await open();
+
+      expect(process.exit).toHaveBeenCalledWith(0);
+    });
+
+    it("should show error when no worktrees exist", async () => {
+      vi.mocked(git.listWorktrees).mockReturnValue([]);
+      vi.mocked(git.listArchivedWorktrees).mockReturnValue([]);
+
+      await open();
+
+      expect(process.exit).toHaveBeenCalledWith(1);
+      expect(console.error).toHaveBeenCalled();
     });
   });
 });
