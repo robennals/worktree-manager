@@ -110,16 +110,21 @@ Examples:
 
 // Open command - open worktree in editor
 program
-  .command("open <branch>")
+  .command("open [branch]")
   .description("Open a worktree in your editor, creating it if needed")
   .option("-e, --editor <name>", "Editor to use (default: cursor, code, vim)")
   .addHelpText(
     "after",
     `
 Examples:
+  $ wtm open                     # Show interactive picker to select a branch
   $ wtm open feature/login       # Open in default editor (cursor/code/vim)
+  $ wtm open login               # Open branch matching 'login' (substring match)
+  $ wtm open 123                 # Open branch for PR #123
+  $ wtm open #123                # Also works with # prefix
   $ wtm open main -e code        # Open in VS Code
 
+If multiple branches match, you'll be shown an interactive picker.
 If a worktree needs to be created, the .wtm-init script will be run automatically.
 See 'wtm new --help' for details on the init script.
 `

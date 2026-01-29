@@ -174,3 +174,19 @@ export function batchGetPRStatuses(prNumbers: number[]): Map<number, PRStatus> {
 export function findPRForBranch(branch: string): PullRequest | null {
   return getPRInfoWithCommit(branch);
 }
+
+/**
+ * Get branch name from a PR number
+ */
+export function getBranchFromPRNumber(prNumber: number): string | null {
+  try {
+    const output = execSync(
+      `gh pr view ${prNumber} --json headRefName`,
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }
+    );
+    const data = JSON.parse(output) as { headRefName: string };
+    return data.headRefName || null;
+  } catch {
+    return null;
+  }
+}
