@@ -10,14 +10,12 @@ import {
 } from "../utils/git.js";
 import { runInitScriptWithWarning } from "../utils/init-script.js";
 
-export interface AddOptions {
-  // Currently empty, kept for future extensibility
-}
+export type AddOptions = Record<string, never>;
 
 /**
  * Add a worktree for an existing branch (local or remote)
  */
-export async function add(branch: string, options: AddOptions = {}): Promise<void> {
+export async function add(branch: string, _options: AddOptions = {}): Promise<void> {
   const context = getContext();
 
   if (!context.inGitRepo && !context.inWtmParent) {

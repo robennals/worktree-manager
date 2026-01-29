@@ -101,7 +101,6 @@ export function batchGetPRStatuses(prNumbers: number[]): Map<number, PRStatus> {
   try {
     // Use gh api with GraphQL to batch fetch PR info
     // Build a query that fetches all PRs at once
-    const nodeIds = prNumbers.map((n) => `"${n}"`).join(", ");
     const query = `
       query {
         repository(owner: "{owner}", name: "{repo}") {

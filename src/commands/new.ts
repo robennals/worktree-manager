@@ -1,5 +1,4 @@
 import chalk from "chalk";
-import path from "node:path";
 import {
   localBranchExists,
   worktreePathExists,
