@@ -6,13 +6,13 @@ A CLI tool for managing git worktrees with ease. Simplify your multi-branch work
 
 ```bash
 # Using npm
-npm install -g wtm-cli
+npm install -g @robennals/wtm
 
 # Using pnpm
-pnpm add -g wtm-cli
+pnpm add -g @robennals/wtm
 
 # Using yarn
-yarn global add wtm-cli
+yarn global add @robennals/wtm
 ```
 
 ## Quick Start
